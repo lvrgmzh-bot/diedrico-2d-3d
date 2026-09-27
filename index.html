@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diédrico 2D ⇄ 3D</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef0f3;--panel:#fbfbfc;--ink:#1a2030;--mut:#6a7286;--line:#d8dce4;--acc:#1d4ed8;--grid:#e3e6ec;--lt:#1a2030}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171d;--panel:#1b1f27;--ink:#e6e9f0;--mut:#8b93a7;--line:#2c3240;--acc:#6ea0ff;--grid:#252a35;--lt:#e6e9f0}}
+:root[data-theme="dark"]{--bg:#14171d;--panel:#1b1f27;--ink:#e6e9f0;--mut:#8b93a7;--line:#2c3240;--acc:#6ea0ff;--grid:#252a35;--lt:#e6e9f0}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+#app{display:grid;height:100%;grid-template-columns:58px minmax(0,1fr) 290px;grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"h h h" "t m a" "s s s"}
+@media(max-width:860px){#app{grid-template-columns:58px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) 40% auto;grid-template-areas:"h h" "t m" "a a" "s s"}}
+header{grid-area:h;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:6px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+header b{font-size:15px;letter-spacing:.2px}
+header label{display:flex;gap:5px;align-items:center;color:var(--mut)}
+button,select,input{font:inherit;color:var(--ink)}
+button{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 9px;cursor:pointer}
+button:hover{border-color:var(--acc)}button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+input,select{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 6px;min-width:0}
+input[type=number]{width:100%}
+#tools{grid-area:t;display:flex;flex-direction:column;gap:6px;padding:8px 6px;background:var(--panel);border-right:1px solid var(--line)}
+#tools button{display:flex;flex-direction:column;align-items:center;padding:6px 0;font-size:10px;gap:1px}
+#tools button span{font-size:18px;line-height:1}
+#views{grid-area:m;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);min-height:0}
+#views.m2{grid-template-columns:1fr}#views.m2 #v3{display:none}
+#views.m3{grid-template-columns:1fr}#views.m3 #v2{display:none}
+@media(max-width:860px){#views{grid-template-columns:1fr;grid-template-rows:1fr 1fr}#views.m2,#views.m3{grid-template-rows:1fr}}
+#views section{position:relative;background:var(--panel);min-height:0;min-width:0}
+.tag{position:absolute;right:8px;top:6px;color:var(--mut);font-size:11px;pointer-events:none}
+svg,canvas{display:block;width:100%;height:100%;touch-action:none}
+svg.t-sel{cursor:default}svg.t-add{cursor:crosshair}
+.g{stroke:var(--grid);fill:none}.lt{stroke:var(--lt);stroke-width:1.6}
+.cap{fill:var(--mut);font-size:11px}.lb{font-size:13px;font-weight:600;paint-order:stroke;stroke:var(--panel);stroke-width:3px}
+.ref{stroke:var(--mut);stroke-dasharray:3 4;opacity:.7}.dm{fill:var(--mut);font-size:10.5px;paint-order:stroke;stroke:var(--panel);stroke-width:3px}
+.dl{stroke:var(--mut);opacity:.8}
+.qk{font-size:10.5px;font-weight:700;paint-order:stroke;stroke:var(--panel);stroke-width:3px}
+.qleg{position:absolute;left:8px;right:8px;top:30px;display:flex;font-size:10.5px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.15);z-index:2;text-align:center}
+.qleg>div{flex:1;padding:5px 4px;border-left:1px solid var(--line)}.qleg>div:first-child{border-left:0}
+.qleg small{display:block;color:var(--mut);font-weight:400;margin-top:1px}
+.qleg.hidden{display:none}
+.tools3{position:absolute;left:8px;top:6px;z-index:2;display:flex;gap:4px}
+.tools3 button{padding:4px 7px}
+aside{grid-area:a;overflow:auto;background:var(--panel);border-left:1px solid var(--line);padding:4px 10px}
+@media(max-width:860px){aside{border-left:0;border-top:1px solid var(--line)}}
+details{border-bottom:1px solid var(--line);padding:6px 0}summary{cursor:pointer;font-weight:600;margin-bottom:6px}
+.row{display:flex;gap:5px;margin:4px 0}.row>*{flex:1}.row button{flex:0 0 auto}
+aside label{display:block;color:var(--mut);margin:4px 0}aside label input{margin-top:2px;width:100%;box-sizing:border-box}
+small{color:var(--mut)}
+.ob{display:flex;align-items:center;gap:6px;padding:4px 5px;border-radius:6px;cursor:pointer}
+.ob.on{background:var(--bg);outline:1px solid var(--acc)}.ob i{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
+.ob span{flex:1;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ob button{padding:0 6px;border:0;background:none}
+footer{grid-area:s;padding:5px 12px;background:var(--panel);border-top:1px solid var(--line);color:var(--mut);min-height:1.4em}
+</style></head>
+<body>
+<div id="app">
+<header>
+ <b>Diédrico 2D ⇄ 3D</b>
+ <span><button id="und" title="Deshacer (Ctrl+Z)">↶</button> <button id="red" title="Rehacer (Ctrl+Y)">↷</button></span>
+ <span id="modes"><button data-m="" class="on">2D + 3D</button> <button data-m="m2">Solo 2D</button> <button data-m="m3">Solo 3D</button></span>
+ <label><input type="checkbox" id="snap" checked>Rejilla de 5</label>
+ <label><input type="checkbox" id="cotas" checked>Cotas</label>
+ <label><input type="checkbox" id="cuad">Cuadrantes</label>
+ <label><input type="checkbox" id="trazas" checked>Trazas</label>
+ <label>Abatimiento del PH <input type="range" id="ab" min="0" max="90" value="0"></label>
+</header>
+<div id="tools">
+ <button data-t="sel" class="on" title="Seleccionar y arrastrar (V)"><span>↖</span>Mover</button>
+ <button data-t="pt" title="Punto (P)"><span>•</span>Punto</button>
+ <button data-t="ln" title="Recta por 2 puntos (R)"><span>╱</span>Recta</button>
+ <button data-t="pl" title="Plano por 3 puntos (L)"><span>▱</span>Plano</button>
+</div>
+<main id="views">
+ <section id="v2"><div class="tag">Alzado arriba · Planta abajo</div><div id="qleg" class="qleg hidden"></div><svg id="svg" class="t-sel"></svg></section>
+ <section id="v3"><div class="tag">Arrastra para girar · rueda para zoom</div>
+  <div class="tools3">
+   <button data-t3="orbit" class="on" title="Orbitar (arrastra para girar)">🧭</button>
+   <button data-t3="pt3" title="Punto en el espacio (clic sobre el plano PH)">•</button>
+   <button data-t3="ln3" title="Recta en el espacio (clic en 2 puntos)">╱</button>
+  </div>
+  <canvas id="cv"></canvas></section>
+</main>
+<aside>
+ <details open><summary>Punto por coordenadas</summary>
+  <div class="row"><input id="nx" type="number" value="0" aria-label="x"><input id="ny" type="number" value="30" aria-label="y"><input id="nz" type="number" value="30" aria-label="z"><button id="addp">Añadir</button></div>
+  <small>x sobre la LT · y alejamiento · z cota</small></details>
+ <details open><summary>Añadir por tipo</summary>
+  <select id="ct" style="width:100%"></select>
+  <div class="row"><select id="ca"></select><select id="cb"></select><select id="cc"></select></div>
+  <button id="mk">Crear</button></details>
+ <details open><summary>Propiedades</summary><div id="props"></div></details>
+ <details open><summary>Objetos</summary><div id="objs"></div></details>
+</aside>
+<footer id="st"></footer>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ================= GUÍA RÁPIDA DE ARQUITECTURA =================
+ Modelo: cada objeto vive en objs[] con {id,kind,t,refs,v,name,c,hide,geo}.
+   kind: 'pt'|'ln'|'pl' (qué es).  t: la "receta" concreta (ver calc()).
+   refs: ids de otros objetos de los que depende (grafo de dependencias).
+   v: sólo para puntos libres (t==='free'), sus coords {x,y,z} editables.
+   geo: caché calculada por compute(): pt→[x,y,z], ln→{p,d}, pl→{p,n}.
+ Flujo de datos (unidireccional): editar v de un punto libre → compute()
+   recorre objs y recalcula geo de todos vía calc(o,R) usando refs → esa
+   misma geo alimenta el SVG (draw2d) y Three.js (buildScene). No hay
+   estado duplicado: 2D y 3D son sólo "vistas" de objs.
+ Añadir una construcción nueva:
+   1) nuevo case en calc() (recibe R=[geo_de_cada_ref] en el orden de refs)
+   2) entrada en CONS: {n:'texto menú',a:'pt'|'ln'|'pl',b:...,c:...,k:'pt'|'ln'|'pl'}
+      (a/b/c = tipos de las hasta 3 referencias que pide el panel Construir;
+      k = tipo de objeto que produce). Se auto-registra en el desplegable.
+   3) opcional: entrada en DESC para el texto corto en el panel de Objetos.
+   calc() debe devolver null si la construcción es degenerada (paralelismos,
+   puntos alineados, rectas que se cruzan...); el panel Construir comprueba
+   el resultado ANTES de crear el objeto y no deja crear nada si es null.
+ Convenio diédrico: x = abscisa (posición sobre LT), y = alejamiento
+   (planta, hacia abajo en el SVG), z = cota (alzado, hacia arriba).
+   Cuadrantes: 1(y≥0,z≥0) 2(y<0,z≥0) 3(y<0,z<0) 4(y≥0,z<0); con el
+   interruptor "Cuadrantes" activo, sólo el tramo en el 1er cuadrante se
+   dibuja continuo y el resto discontinuo (función quadDraw en draw2d).
+ 3D: T(x,y,z) convierte coords diédricas a THREE.Vector3 (Y_three=z,
+   Z_three=y). Las esferas de puntos llevan userData.pointId para poder
+   seleccionarlas con el Raycaster (pick3D) al crear rectas en el espacio.
+================================================================= */
+const $=s=>document.querySelector(s);
+const PAL=['#3b82f6','#ef4444','#10b981','#f59e0b','#a855f7','#ec4899','#14b8a6','#f97316'];
+const P1='′',P2='″',fmt=n=>Math.round(n*10)/10,f2=n=>(Math.round(n*100)/100);
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const norm=a=>{const l=Math.hypot(...a);return l<1e-9?null:a.map(c=>c/l)};
+/* Intersección de dos planos {p,n}: devuelve {p,d} o null si son paralelos. */
+function planeInter(A,B){
+ const dir=norm(cross(A.n,B.n));if(!dir)return null;
+ const d1=dot(A.n,A.p),d2=dot(B.n,B.p);
+ const ax=[0,1,2].reduce((a,b)=>Math.abs(dir[b])>Math.abs(dir[a])?b:a,0),[i0,i1]=[0,1,2].filter(i=>i!==ax);
+ const a11=A.n[i0],a12=A.n[i1],a21=B.n[i0],a22=B.n[i1],det=a11*a22-a12*a21;if(Math.abs(det)<1e-9)return null;
+ const p=[0,0,0];p[ax]=0;p[i0]=(d1*a22-d2*a12)/det;p[i1]=(a11*d2-a21*d1)/det;
+ return{p,d:dir}}
+const KLABEL={pt:'punto',ln:'recta',pl:'plano'};
+const QCOL=['','#2563eb','#059669','#d97706','#db2777'],QROM=['','I','II','III','IV'];
+const quadNum=(y,z)=>y>=0?(z>=0?1:4):(z>=0?2:3);
+let objs=[],nid=1,cnt={pt:0,ln:0,pl:0},sel=null,pending=[],tool='sel',tool3='orbit',pending3=[],hist=[],fut=[],drag=null,pan=null,msg='';
+const V={ox:0,oy:0,s:3,init:0};
+const byId=id=>objs.find(o=>o.id===id);
+
+/* ---------- Modelo: todo vive en 3D, el diédrico es proyección ---------- */
+function calc(o,R){
+ const t=o.t,P=R[0],Q=R[1];
+ switch(t){
+ case 'free':return[o.v.x,o.v.y,o.v.z];
+ case 'mid':return P.map((c,i)=>(c+Q[i])/2);
+ case 'inter':{const den=dot(Q.n,P.d);if(Math.abs(den)<1e-9)return null;const k=dot(Q.n,sub(Q.p,P.p))/den;return P.p.map((c,i)=>c+k*P.d[i])}
+ case 'l2':{const d=norm(sub(Q,P));return d&&{p:P,d}}
+ case 'lpar':return{p:P,d:Q.d};
+ case 'lperp':return{p:P,d:Q.n};
+ case 'llt':return{p:P,d:[1,0,0]};
+ case 'lvert':return{p:P,d:[0,0,1]};
+ case 'lpunta':return{p:P,d:[0,1,0]};
+ case 'lhor':{if(Math.abs(P[2]-Q[2])>1e-6)return null;const d=norm(sub(Q,P));return d&&{p:P,d:[d[0],d[1],0]}}
+ case 'lfront':{if(Math.abs(P[1]-Q[1])>1e-6)return null;const d=norm(sub(Q,P));return d&&{p:P,d:[d[0],0,d[2]]}}
+ case 'lperf':{if(Math.abs(P[0]-Q[0])>1e-6)return null;const d=norm(sub(Q,P));return d&&{p:P,d:[0,d[1],d[2]]}}
+ case 'p3':{const n=norm(cross(sub(Q,P),sub(R[2],P)));return n&&{p:P,n}}
+ case 'phor':return{p:P,n:[0,0,1]};
+ case 'pfront':return{p:P,n:[0,1,0]};
+ case 'pperf':return{p:P,n:[1,0,0]};
+ case 'bis1':return{p:[0,0,0],n:norm([0,1,-1])};
+ case 'bis2':return{p:[0,0,0],n:norm([0,1,1])};
+ case 'pperp':return{p:P,n:Q.d};
+ case 'ppar':return{p:P,n:Q.n};
+ case 'pp2':return planeInter(P,Q);
+ case 'pl_lp':{const n=norm(cross(P.d,sub(Q,P.p)));return n&&{p:P.p,n}}
+ case 'pl_ll':{let n=norm(cross(P.d,Q.d));
+  if(n)return Math.abs(dot(sub(Q.p,P.p),n))>1e-6?null:{p:P.p,n};
+  const n2=norm(cross(P.d,sub(Q.p,P.p)));return n2&&{p:P.p,n:n2}}
+ case 'pltl_pp':{const n=norm(cross([1,0,0],sub(Q,P)));return n&&{p:P,n}}
+ case 'pltl_pl':{const n=norm(cross([1,0,0],P.d));return n&&{p:P.p,n}}
+ case 'proj':{const k=(dot(Q.n,P)-dot(Q.n,Q.p))/dot(Q.n,Q.n);return P.map((c,i)=>c-k*Q.n[i])}
+ case 'projl':{const k=dot(sub(P,Q.p),Q.d)/dot(Q.d,Q.d);return Q.p.map((c,i)=>c+k*Q.d[i])}
+ case 'symp':return P.map((c,i)=>2*Q[i]-c);
+ }}
+function compute(){for(const o of objs){const R=o.refs.map(i=>{const r=byId(i);return r&&r.geo});o.geo=R.some(g=>!g)?null:calc(o,R)}}
+function add(kind,t,refs,v){
+ const c=cnt[kind]++;
+ const name=kind==='pt'?String.fromCharCode(65+c%26)+(c>=26?Math.floor(c/26):''):kind==='ln'?'rstuvw'[c%6]+(c>=6?Math.floor(c/6):''):'αβγδεζηθ'[c%8]+(c>=8?Math.floor(c/8):'');
+ const o={id:nid++,kind,t,refs,v,name,hide:0};o.c=PAL[o.id%PAL.length];objs.push(o);compute();return o}
+function del(id){snap();const rm=new Set([id]);let ch=1;while(ch){ch=0;for(const o of objs)if(!rm.has(o.id)&&o.refs.some(r=>rm.has(r))){rm.add(o.id);ch=1}}
+ objs=objs.filter(o=>!rm.has(o.id));if(rm.has(sel))sel=null;pending=pending.filter(x=>!rm.has(x));compute();render(1)}
+const ser=()=>JSON.stringify({o:objs.map(({geo,...r})=>r),nid,cnt});
+const STORAGE_KEY='diedrico-2d-3d-v1';
+function saveProgress(){try{localStorage.setItem(STORAGE_KEY,ser())}catch(e){msg='No se pudo guardar el progreso en este navegador.'}}
+function snap(){hist.push(ser());if(hist.length>80)hist.shift();fut=[]}
+function load(s){const d=JSON.parse(s);objs=d.o;nid=d.nid;cnt=d.cnt;if(!byId(sel))sel=null;pending=[];compute();render(1)}
+function undo(){if(!hist.length)return;fut.push(ser());load(hist.pop())}
+function redo(){if(!fut.length)return;hist.push(ser());load(fut.pop())}
+
+const CONS={
+ // --- Punto ---
+ mid:{n:'Punto medio de dos puntos',a:'pt',b:'pt',k:'pt'},
+ symp:{n:'Simétrico de un punto respecto de otro (centro)',a:'pt',b:'pt',k:'pt'},
+ inter:{n:'Intersección de una recta y un plano',a:'ln',b:'pl',k:'pt'},
+ proj:{n:'Proyección de un punto sobre un plano',a:'pt',b:'pl',k:'pt'},
+ projl:{n:'Proyección de un punto sobre una recta',a:'pt',b:'ln',k:'pt'},
+ // --- Recta ---
+ l2:{n:'Por dos puntos',a:'pt',b:'pt',k:'ln'},
+ lpar:{n:'Paralela a una recta, por un punto',a:'pt',b:'ln',k:'ln'},
+ lperp:{n:'Perpendicular a un plano, por un punto',a:'pt',b:'pl',k:'ln'},
+ llt:{n:'Paralela a la LT (fronto-horizontal), por un punto',a:'pt',k:'ln'},
+ lvert:{n:'Vertical, por un punto',a:'pt',k:'ln'},
+ lpunta:{n:'De punta, por un punto',a:'pt',k:'ln'},
+ lhor:{n:'Horizontal, por dos puntos (misma cota)',a:'pt',b:'pt',k:'ln'},
+ lfront:{n:'Frontal, por dos puntos (mismo alejamiento)',a:'pt',b:'pt',k:'ln'},
+ lperf:{n:'De perfil, por dos puntos (misma abscisa)',a:'pt',b:'pt',k:'ln'},
+ pp2:{n:'Intersección de dos planos',a:'pl',b:'pl',k:'ln'},
+ // --- Plano ---
+ p3:{n:'Por tres puntos',a:'pt',b:'pt',c:'pt',k:'pl'},
+ pl_lp:{n:'Que contiene una recta y pasa por un punto',a:'ln',b:'pt',k:'pl'},
+ pl_ll:{n:'Que contiene dos rectas (paralelas o que se cortan)',a:'ln',b:'ln',k:'pl'},
+ pperp:{n:'Perpendicular a una recta, por un punto',a:'pt',b:'ln',k:'pl'},
+ ppar:{n:'Paralelo a otro plano, por un punto',a:'pt',b:'pl',k:'pl'},
+ pltl_pp:{n:'Paralelo a la LT, por dos puntos',a:'pt',b:'pt',k:'pl'},
+ pltl_pl:{n:'Paralelo a la LT, que contiene una recta',a:'ln',k:'pl'},
+ phor:{n:'Horizontal, por un punto',a:'pt',k:'pl'},
+ pfront:{n:'Frontal, por un punto',a:'pt',k:'pl'},
+ pperf:{n:'De perfil, por un punto',a:'pt',k:'pl'},
+ bis1:{n:'1.er bisector (y = z)',k:'pl'},
+ bis2:{n:'2.º bisector (y = −z)',k:'pl'}};
+const nm=(o,i)=>{const r=byId(o.refs[i]);return r?r.name:'?'};
+const DESC={free:o=>'punto',mid:o=>`medio de ${nm(o,0)}${nm(o,1)}`,symp:o=>`simétrico de ${nm(o,0)} resp. de ${nm(o,1)}`,inter:o=>`${nm(o,0)} ∩ ${nm(o,1)}`,
+ proj:o=>`proy. de ${nm(o,0)} sobre ${nm(o,1)}`,projl:o=>`proy. de ${nm(o,0)} sobre ${nm(o,1)}`,l2:o=>`recta ${nm(o,0)}${nm(o,1)}`,
+ lpar:o=>`por ${nm(o,0)} ∥ ${nm(o,1)}`,lperp:o=>`por ${nm(o,0)} ⟂ ${nm(o,1)}`,llt:o=>`por ${nm(o,0)} ∥ LT`,lvert:o=>`vertical por ${nm(o,0)}`,lpunta:o=>`de punta por ${nm(o,0)}`,
+ lhor:o=>`horizontal ${nm(o,0)}${nm(o,1)}`,lfront:o=>`frontal ${nm(o,0)}${nm(o,1)}`,lperf:o=>`de perfil ${nm(o,0)}${nm(o,1)}`,
+ pp2:o=>`${nm(o,0)} ∩ ${nm(o,1)}`,p3:o=>`plano ${nm(o,0)}${nm(o,1)}${nm(o,2)}`,pl_lp:o=>`por ${nm(o,0)} y ${nm(o,1)}`,pl_ll:o=>`por ${nm(o,0)} y ${nm(o,1)}`,
+ pperp:o=>`⟂ ${nm(o,1)} por ${nm(o,0)}`,ppar:o=>`∥ ${nm(o,1)} por ${nm(o,0)}`,pltl_pp:o=>`∥ LT por ${nm(o,0)}${nm(o,1)}`,pltl_pl:o=>`∥ LT que contiene ${nm(o,0)}`,
+ phor:o=>`horizontal por ${nm(o,0)}`,pfront:o=>`frontal por ${nm(o,0)}`,pperf:o=>`de perfil por ${nm(o,0)}`,bis1:o=>'1.er bisector',bis2:o=>'2.º bisector'};
+const desc=o=>o.kind==='pt'?`(${fmt(o.geo[0])}, ${fmt(o.geo[1])}, ${fmt(o.geo[2])})`:DESC[o.t](o);
+const info=o=>o.kind==='pt'?`x=${f2(o.geo[0])} · y=${f2(o.geo[1])} · z=${f2(o.geo[2])}`:o.kind==='ln'?`Dirección (${o.geo.d.map(f2)})`:`Normal (${o.geo.n.map(f2)}) · n·X = ${f2(dot(o.geo.n,o.geo.p))}`;
+
+/* ---------- 2D (SVG) ---------- */
+const svg=$('#svg');
+const X=x=>V.ox+x*V.s,YA=z=>V.oy-z*V.s,YP=y=>V.oy+y*V.s;
+function draw2d(){
+ const W=svg.clientWidth,H=svg.clientHeight;if(!W)return;
+ if(!V.init){V.ox=W/2;V.oy=H/2;V.init=1}
+ let g=10*V.s;while(g<14)g*=2;let d='';
+ for(let x=(V.ox%g+g)%g;x<W;x+=g)d+=`M${x} 0V${H}`;for(let y=(V.oy%g+g)%g;y<H;y+=g)d+=`M0 ${y}H${W}`;
+ let h=`<path class="g" d="${d}"/><line class="lt" x1="0" x2="${W}" y1="${V.oy}" y2="${V.oy}"/><text class="cap" x="10" y="${V.oy-7}">LT</text><text class="cap" x="10" y="16">ALZADO (PV)</text><text class="cap" x="10" y="${H-10}">PLANTA (PH)</text>`;
+ const cuadOn=$('#cuad').checked,trazasOn=$('#trazas').checked;
+ $('#qleg').classList.toggle('hidden',!cuadOn);
+ const lab=(t,x,y,c)=>`<text class="lb" x="${x+8}" y="${y-8}" fill="${c}">${t}</text>`;
+ function lineFull(p0,dd,v,o){
+  const l=Math.hypot(dd[0],dd[1]),u=[dd[0]/l,dd[1]/l],L=6000/V.s,f=q=>[X(q[0]),v==='a'?YA(q[1]):YP(q[1])];
+  const a=f([p0[0]-u[0]*L,p0[1]-u[1]*L]),b=f([p0[0]+u[0]*L,p0[1]+u[1]*L]),ln=`x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"`;
+  return `<line ${ln} stroke="${o.c}" stroke-width="${o.id===sel?3.2:1.8}"/><line ${ln} stroke="transparent" stroke-width="12" data-id="${o.id}"/>`}
+ function lineLabel(p0,dd,v,o,name){
+  const l=Math.hypot(dd[0],dd[1]),u=[dd[0]/l,dd[1]/l],f=q=>[X(q[0]),v==='a'?YA(q[1]):YP(q[1])];
+  const xw=(W*.86-V.ox)/V.s;let q=p0;if(Math.abs(u[0])>1e-6){q=[xw,p0[1]+(xw-p0[0])/u[0]*u[1]]}
+  const [sx,sy]=f(q);return lab(name,sx-8,Math.min(Math.max(sy,16),H-8),o.c)}
+ function inf(p0,dd,v,o,name){return lineFull(p0,dd,v,o)+lineLabel(p0,dd,v,o,name)}
+ function critT(p,d,T){const s=new Set([-T,T]);
+  if(Math.abs(d[1])>1e-9){const t=-p[1]/d[1];if(t>-T&&t<T)s.add(t)}
+  if(Math.abs(d[2])>1e-9){const t=-p[2]/d[2];if(t>-T&&t<T)s.add(t)}
+  return[...s].sort((a,b)=>a-b)}
+ function quadDraw(p,d,v,o){
+  const T=6000/V.s,crits=critT(p,d,T);let s='';
+  for(let i=0;i<crits.length-1;i++){
+   const t0=crits[i],t1=crits[i+1],tm=(t0+t1)/2,y=p[1]+tm*d[1],z=p[2]+tm*d[2],solid=y>=-1e-6&&z>=-1e-6;
+   const x1=X(p[0]+t0*d[0]),x2=X(p[0]+t1*d[0]),y1=v==='a'?YA(p[2]+t0*d[2]):YP(p[1]+t0*d[1]),y2=v==='a'?YA(p[2]+t1*d[2]):YP(p[1]+t1*d[1]);
+   const dash=solid?'':' stroke-dasharray="7 5"';
+   s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${o.c}" stroke-width="${o.id===sel?3.2:1.8}"${dash}/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="12" data-id="${o.id}"/>`}
+  return s}
+ const vis=objs.filter(o=>o.geo&&!o.hide);let h1='',h2='',h3='';
+ for(const o of vis.filter(o=>o.kind==='pl')){const{p,n}=o.geo,d0=dot(n,p);
+  if(n[0]**2+n[1]**2>1e-9){const k=d0/(n[0]**2+n[1]**2);h1+=inf([n[0]*k,n[1]*k],[-n[1],n[0]],'p',o,o.name+'₁')}
+  if(n[0]**2+n[2]**2>1e-9){const k=d0/(n[0]**2+n[2]**2);h1+=inf([n[0]*k,n[2]*k],[-n[2],n[0]],'a',o,o.name+'₂')}}
+ for(const o of vis.filter(o=>o.kind==='ln')){const{p,d}=o.geo;
+  for(const[v,d2,p2,nn]of[['a',[d[0],d[2]],[p[0],p[2]],P2],['p',[d[0],d[1]],[p[0],p[1]],P1]]){
+   if(Math.hypot(...d2)>1e-6)h1+=(cuadOn?quadDraw(p,d,v,o):lineFull(p2,d2,v,o))+lineLabel(p2,d2,v,o,o.name+nn);
+   else h1+=`<circle cx="${X(p2[0])}" cy="${v==='a'?YA(p2[1]):YP(p2[1])}" r="8" fill="none" stroke="${o.c}" stroke-width="2" data-id="${o.id}"/>`}
+  if(trazasOn){
+   if(Math.abs(d[2])>1e-9){const t=-p[2]/d[2];if(Math.abs(t)<4000){const x=X(p[0]+t*d[0]),y=YP(p[1]+t*d[1]);h1+=`<rect x="${x-4}" y="${y-4}" width="8" height="8" fill="${o.c}"/>`+lab(o.name+'₁',x,y,o.c)}}
+   if(Math.abs(d[1])>1e-9){const t=-p[1]/d[1];if(Math.abs(t)<4000){const x=X(p[0]+t*d[0]),y=YA(p[2]+t*d[2]);h1+=`<rect x="${x-4}" y="${y-4}" width="8" height="8" fill="${o.c}"/>`+lab(o.name+'₂',x,y,o.c)}}}}
+ const cot=$('#cotas').checked;
+ for(const o of vis.filter(o=>o.kind==='pt')){const[x,y,z]=o.geo,ax=X(x),za=YA(z),yp=YP(y),c=o.c;
+  h2+=`<line class="ref" x1="${ax}" y1="${za}" x2="${ax}" y2="${yp}"/>`;
+  if(cuadOn){const qn=quadNum(y,z);h2+=`<text class="qk" x="${ax+5}" y="${(za+yp)/2+3}" fill="${QCOL[qn]}">${QROM[qn]}</text>`}
+  if(cot){const cx=ax+18;
+   h2+=`<path class="dl" d="M${ax+5} ${za}H${cx+4}M${cx} ${za}V${V.oy}M${cx-4} ${V.oy}H${cx+4}M${ax+5} ${yp}H${cx+4}M${cx} ${V.oy}V${yp}"/>`;
+   h2+=`<text class="dm" x="${cx+5}" y="${(za+V.oy)/2+3}">z=${fmt(z)}</text><text class="dm" x="${cx+5}" y="${(yp+V.oy)/2+3}">y=${fmt(y)}</text>`}
+  const ring=(o.id===sel||pending.includes(o.id))?1:0;
+  for(const[cy,v,nn]of[[za,'a',P2],[yp,'p',P1]]){
+   if(ring)h3+=`<circle cx="${ax}" cy="${cy}" r="11" fill="none" stroke="${c}" stroke-width="1.6" pointer-events="none"/>`;
+   h3+=`<circle cx="${ax}" cy="${cy}" r="6" fill="${c}" stroke="var(--panel)" stroke-width="1.5" data-id="${o.id}" data-v="${v}" style="cursor:grab"/>`+lab(o.name+nn,ax,cy,c)}}
+ svg.innerHTML=h+h1+h2+h3}
+
+/* ---------- 3D (Three.js) ---------- */
+const T=(x,y,z)=>new THREE.Vector3(x,z,y);
+const R3=new THREE.WebGLRenderer({canvas:$('#cv'),antialias:true,alpha:true});R3.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(45,1,1,4000);
+const dyn=new THREE.Group(),phg=new THREE.Group(),phd=new THREE.Group(),refl=new THREE.Group();scene.add(dyn,phg,refl);phg.add(phd);
+const OR={th:.55,ph:1.15,r:520};let BG='#fff';
+{const sm=(c,o)=>new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:o,side:THREE.DoubleSide,depthWrite:false});
+ const geo=new THREE.PlaneGeometry(320,320),edge=c=>new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:c}));
+ const pv=new THREE.Group();pv.add(new THREE.Mesh(geo,sm(0x60a5fa,.1)),edge(0x60a5fa));scene.add(pv);
+ const ph=new THREE.Group();ph.add(new THREE.Mesh(geo,sm(0x34d399,.1)),edge(0x34d399));ph.rotation.x=-Math.PI/2;phg.add(ph);
+ scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-170,0,0),new THREE.Vector3(170,0,0)]),new THREE.LineBasicMaterial({color:0x8a93a6})))}
+function clear(g){while(g.children.length){const c=g.children[0];g.remove(c);if(c.geometry)c.geometry.dispose();if(c.material){if(c.material.map)c.material.map.dispose();c.material.dispose()}}}
+function lbl(t,c,pos,sc=1){const k=document.createElement('canvas');k.width=128;k.height=64;const x=k.getContext('2d');x.font='bold 34px system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.lineWidth=7;x.strokeStyle=BG;x.strokeText(t,64,32);x.fillStyle=c;x.fillText(t,64,32);
+ const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(k),depthTest:false,transparent:true}));s.scale.set(28*sc,14*sc,1);s.position.copy(pos);return s}
+const dash=(pts,c)=>{const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineDashedMaterial({color:c,dashSize:4,gapSize:3}));l.computeLineDistances();return l};
+const seg=(a,b,c)=>new THREE.Line(new THREE.BufferGeometry().setFromPoints([a,b]),new THREE.LineBasicMaterial({color:c}));
+const ball=(v,c,r)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,14,10),new THREE.MeshBasicMaterial({color:c}));m.position.copy(v);return m};
+function buildScene(){
+ BG=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#fff';
+ const trazasOn=$('#trazas').checked;
+ [dyn,phd,refl].forEach(clear);
+ dyn.add(lbl('PV','#60a5fa',T(-150,0,150),1),lbl('LT','#8a93a6',T(165,0,6),.8));phd.add(lbl('PH','#34d399',T(-150,150,0),1));
+ for(const o of objs){if(!o.geo||o.hide)continue;const c=o.c,on=o.id===sel;
+  if(o.kind==='pt'){const[x,y,z]=o.geo;
+   const b1=ball(T(x,y,z),c,on?4.6:3.4),b2=ball(T(x,0,z),c,2),b3=ball(T(x,y,0),c,2);
+   b1.userData.pointId=b2.userData.pointId=b3.userData.pointId=o.id;
+   dyn.add(b1,lbl(o.name,c,T(x+9,y,z+9)),dash([T(x,y,z),T(x,0,z)],c),b2,lbl(o.name+P2,c,T(x+9,0,z-8),.7));
+   refl.add(dash([T(x,y,z),T(x,y,0)],c));phd.add(b3,lbl(o.name+P1,c,T(x+9,y,0),.7))}
+  else if(o.kind==='ln'){const{p,d}=o.geo,L=360;
+   dyn.add(seg(T(p[0]-d[0]*L,p[1]-d[1]*L,p[2]-d[2]*L),T(p[0]+d[0]*L,p[1]+d[1]*L,p[2]+d[2]*L),c),lbl(o.name,c,T(p[0]+d[0]*30,p[1]+d[1]*30,p[2]+d[2]*30+8)));
+   if(trazasOn){
+    if(Math.abs(d[2])>1e-9){const t=-p[2]/d[2];if(Math.abs(t)<4000){const q=T(p[0]+t*d[0],p[1]+t*d[1],0);phd.add(ball(q,c,3),lbl(o.name+'₁',c,q.clone().add(new THREE.Vector3(8,0,0)),.7))}}
+    if(Math.abs(d[1])>1e-9){const t=-p[1]/d[1];if(Math.abs(t)<4000){const q=T(p[0]+t*d[0],0,p[2]+t*d[2]);dyn.add(ball(q,c,3),lbl(o.name+'₂',c,q.clone().add(new THREE.Vector3(8,8,0)),.7))}}}}
+  else{const{p,n}=o.geo,d0=dot(n,p),m=new THREE.Mesh(new THREE.PlaneGeometry(260,260),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:on?.4:.22,side:THREE.DoubleSide,depthWrite:false}));
+   m.position.copy(T(n[0]*d0,n[1]*d0,n[2]*d0));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),new THREE.Vector3(n[0],n[2],n[1]));dyn.add(m);
+   if(n[0]**2+n[1]**2>1e-9){const s=n[0]**2+n[1]**2,k=d0/s,l=Math.sqrt(s),u=[-n[1]/l*200,n[0]/l*200];phd.add(seg(T(n[0]*k-u[0],n[1]*k-u[1],0),T(n[0]*k+u[0],n[1]*k+u[1],0),c))}
+   if(n[0]**2+n[2]**2>1e-9){const s=n[0]**2+n[2]**2,k=d0/s,l=Math.sqrt(s),u=[-n[2]/l*200,n[0]/l*200];dyn.add(seg(T(n[0]*k-u[0],0,n[2]*k-u[1]),T(n[0]*k+u[0],0,n[2]*k+u[1]),c))}
+   dyn.add(lbl(o.name,c,T(n[0]*d0+60,n[1]*d0+60,n[2]*d0+60)))}}}
+function loop(){requestAnimationFrame(loop);const a=+$('#ab').value;phg.rotation.x=a*Math.PI/180;refl.visible=a===0;
+ cam.position.set(OR.r*Math.sin(OR.ph)*Math.sin(OR.th),40+OR.r*Math.cos(OR.ph),40+OR.r*Math.sin(OR.ph)*Math.cos(OR.th));cam.lookAt(0,40,40);R3.render(scene,cam)}
+new ResizeObserver(()=>{const c=$('#cv'),w=c.clientWidth,h=c.clientHeight;if(w&&h){R3.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}draw2d()}).observe($('#views'));
+const RC=new THREE.Raycaster(),NDC=new THREE.Vector2();
+function pick3D(e){
+ const c=$('#cv'),r=c.getBoundingClientRect();
+ NDC.x=((e.clientX-r.left)/r.width)*2-1;NDC.y=-((e.clientY-r.top)/r.height)*2+1;
+ RC.setFromCamera(NDC,cam);
+ const pickables=[];scene.traverse(m=>{if(m.userData&&m.userData.pointId!=null)pickables.push(m)});
+ const hit=RC.intersectObjects(pickables,false)[0];
+ if(hit)return{id:hit.object.userData.pointId};
+ const plane=new THREE.Plane(new THREE.Vector3(0,1,0),0),pos=new THREE.Vector3();
+ if(RC.ray.intersectPlane(plane,pos))return{pos:[pos.x,pos.z,0]};
+ return null}
+{const c=$('#cv');let d=null;
+ c.addEventListener('pointerdown',e=>{
+  if(tool3==='orbit'){d=[e.clientX,e.clientY];c.setPointerCapture(e.pointerId);return}
+  const hit=pick3D(e);if(!hit)return;
+  let pid;if(hit.id!=null)pid=hit.id;else{snap();pid=add('pt','free',[],{x:sn(hit.pos[0]),y:sn(hit.pos[1]),z:0}).id}
+  if(tool3==='pt3'){sel=pid;render(1);return}
+  if(pending3.includes(pid))return;pending3.push(pid);
+  if(pending3.length===2){snap();const o=add('ln','l2',pending3.slice());pending3=[];sel=o.id;render(1)}else render(0)});
+ c.addEventListener('pointermove',e=>{if(!d)return;OR.th-=(e.clientX-d[0])*.006;OR.ph=Math.min(3.04,Math.max(.1,OR.ph-(e.clientY-d[1])*.006));d=[e.clientX,e.clientY]});
+ c.addEventListener('pointerup',()=>d=null);
+ c.addEventListener('wheel',e=>{e.preventDefault();OR.r=Math.min(1500,Math.max(120,OR.r*Math.exp(e.deltaY*.001)))},{passive:false})}
+function setTool3(t){tool3=t;pending3=[];document.querySelectorAll('.tools3 button').forEach(b=>b.classList.toggle('on',b.dataset.t3===t));render(0)}
+document.querySelectorAll('.tools3 button').forEach(b=>b.onclick=()=>setTool3(b.dataset.t3));
+
+/* ---------- Interacción 2D ---------- */
+const sn=v=>$('#snap').checked?Math.round(v/5)*5:Math.round(v*10)/10;
+function newPointAt(px,py){snap();const x=(px-V.ox)/V.s,q=(py-V.oy)/V.s;let y=25,z=25;if(q<0)z=-q;else y=q;
+ return add('pt','free',[],{x:sn(x),y:sn(y),z:sn(z)})}
+svg.addEventListener('pointerdown',e=>{
+ const r=svg.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,el=e.target.closest('[data-id]'),id=el?+el.dataset.id:null;
+ svg.setPointerCapture(e.pointerId);
+ if(tool==='sel'){
+  if(id){sel=id;const o=byId(id);drag=o.t==='free'&&el.dataset.v?{id,v:el.dataset.v,moved:0}:null}
+  else{sel=null;pan={px,py,ox:V.ox,oy:V.oy}}
+  render(1);return}
+ if(tool==='pt'){sel=newPointAt(px,py).id;render(1);return}
+ let pid=null;if(id){if(byId(id).kind==='pt')pid=id}else pid=newPointAt(px,py).id;
+ if(!pid||pending.includes(pid))return;pending.push(pid);
+ const need=tool==='ln'?2:3;
+ if(pending.length===need){snap();const o=add(tool==='ln'?'ln':'pl',tool==='ln'?'l2':'p3',pending.slice());pending=[];sel=o.id;if(!o.geo)msg='Los puntos son colineales o coinciden: no define '+(tool==='ln'?'una recta':'un plano')+'.'}
+ render(1)});
+svg.addEventListener('pointermove',e=>{
+ const r=svg.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+ if(drag){if(!drag.moved){snap();drag.moved=1}const o=byId(drag.id),x=(px-V.ox)/V.s;o.v.x=sn(x);
+  if(drag.v==='a')o.v.z=sn((V.oy-py)/V.s);else o.v.y=sn((py-V.oy)/V.s);
+  compute();render(0);syncProps()}
+ else if(pan){V.ox=pan.ox+px-pan.px;V.oy=pan.oy+py-pan.py;draw2d()}});
+svg.addEventListener('pointerup',()=>{drag=null;pan=null});
+svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,s2=Math.min(14,Math.max(.8,V.s*Math.exp(-e.deltaY*.0015))),k=s2/V.s;
+ V.ox=px-(px-V.ox)*k;V.oy=py-(py-V.oy)*k;V.s=s2;draw2d()},{passive:false});
+
+/* ---------- Panel ---------- */
+function panel(){
+ $('#objs').innerHTML=objs.map(o=>`<div class="ob${o.id===sel?' on':''}" data-id="${o.id}"><i style="background:${o.c}"></i><b>${o.name}</b><span>${o.geo?desc(o):'⚠ indefinido'}</span><button data-a="eye" title="Mostrar u ocultar">${o.hide?'○':'●'}</button><button data-a="del" title="Borrar">×</button></div>`).join('')||'<small>Aún no hay objetos. Usa Punto en la barra izquierda.</small>';
+ const o=byId(sel);let p='<small>Selecciona un objeto para ver sus datos.</small>';
+ if(o){p=`<label>Nombre<input id="pn" value="${o.name}"></label>`;
+  if(o.t==='free')p+=['x','y','z'].map((k,i)=>`<label>${['x · abscisa','y · alejamiento','z · cota'][i]}<input type="number" step="1" data-k="${k}" value="${fmt(o.v[k])}"></label>`).join('');
+  else p+=o.geo?`<small>${info(o)}</small>`:'<small>Construcción degenerada.</small>'}
+ $('#props').innerHTML=p;refill()}
+function syncProps(){const o=byId(sel);if(o&&o.t==='free')document.querySelectorAll('[data-k]').forEach(i=>{if(document.activeElement!==i)i.value=fmt(o.v[i.dataset.k])})}
+$('#props').addEventListener('focusin',e=>{if(e.target.dataset.k)snap()});
+$('#props').addEventListener('input',e=>{const o=byId(sel);if(e.target.dataset.k){o.v[e.target.dataset.k]=parseFloat(e.target.value)||0;compute();render(0)}});
+$('#props').addEventListener('change',e=>{if(e.target.id==='pn'){const o=byId(sel);o.name=e.target.value||o.name;render(1)}});
+$('#objs').addEventListener('click',e=>{const row=e.target.closest('.ob');if(!row)return;const id=+row.dataset.id,a=e.target.dataset.a;
+ if(a==='del')return del(id);if(a==='eye')byId(id).hide^=1;else sel=id;render(1)});
+function fillCT(){const keep=$('#ct').value,GN={pt:'Punto',ln:'Recta',pl:'Plano'};
+ $('#ct').innerHTML=['pt','ln','pl'].map(k=>`<optgroup label="${GN[k]}">`+Object.entries(CONS).filter(([,c])=>c.k===k).map(([key,c])=>`<option value="${key}">${c.n}</option>`).join('')+'</optgroup>').join('');
+ if([...$('#ct').options].some(x=>x.value===keep))$('#ct').value=keep;refill()}
+function refill(){const c=CONS[$('#ct').value];if(!c)return;
+ for(const[el,k]of[[$('#ca'),c.a],[$('#cb'),c.b],[$('#cc'),c.c]]){el.style.display=k?'':'none';if(!k)continue;const keep=el.value;
+  el.innerHTML=objs.filter(o=>o.kind===k).map(o=>`<option value="${o.id}">${o.name}</option>`).join('');if([...el.options].some(x=>x.value===keep))el.value=keep}}
+$('#ct').onchange=refill;fillCT();
+$('#mk').onclick=()=>{
+ const t=$('#ct').value;if(!t)return;
+ const c=CONS[t],refs=[];
+ for(const[el,k]of[[$('#ca'),c.a],[$('#cb'),c.b],[$('#cc'),c.c]]){
+  if(!k)continue;
+  if(!el.value){msg=`Falta un ${KLABEL[k]} para esta construcción.`;render(0);return}
+  refs.push(+el.value)}
+ const R=refs.map(i=>byId(i).geo),geo=R.some(g=>!g)?null:calc({t},R);
+ if(!geo){msg=`Esos elementos no determinan un ${KLABEL[c.k]} válido con esta relación (revisa alineaciones, paralelismos o rectas que no se cortan). No se ha creado nada.`;return render(0)}
+ snap();const o=add(c.k,t,refs);sel=o.id;msg='';render(1)};
+$('#addp').onclick=()=>{snap();sel=add('pt','free',[],{x:+$('#nx').value||0,y:+$('#ny').value||0,z:+$('#nz').value||0}).id;render(1)};
+document.querySelectorAll('#tools button').forEach(b=>b.onclick=()=>setTool(b.dataset.t));
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{$('#views').className=b.dataset.m;document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b))});
+$('#und').onclick=undo;$('#red').onclick=redo;
+$('#qleg').innerHTML=[[1,'y>0, z>0','continuo'],[2,'y<0, z>0','discontinuo'],[3,'y<0, z<0','discontinuo'],[4,'y>0, z<0','discontinuo']]
+ .map(([n,s,tr])=>`<div style="color:${QCOL[n]}"><b>${QROM[n]} · ${n}.º cuadrante</b><small>${s} · ${tr}</small></div>`).join('');
+$('#cotas').onchange=()=>draw2d();$('#cuad').onchange=()=>draw2d();$('#trazas').onchange=()=>render(0);
+function setTool(t){tool=t;pending=[];msg='';document.querySelectorAll('#tools button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));svg.className.baseVal=t==='sel'?'t-sel':'t-add';render(0)}
+addEventListener('keydown',e=>{if(/INPUT|SELECT/.test(document.activeElement.tagName))return;const k=e.key.toLowerCase();
+ if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo()}
+ else if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();redo()}
+ else if(k==='v')setTool('sel');else if(k==='p')setTool('pt');else if(k==='r')setTool('ln');else if(k==='l')setTool('pl');
+ else if(k==='escape'){setTool('sel');setTool3('orbit')}else if((k==='delete'||k==='backspace')&&sel)del(sel)});
+function hint(){if(msg)return msg;return{sel:'Arrastra un punto en alzado o planta: ambas vistas y el 3D se actualizan. Arrastra el fondo para desplazar, rueda para zoom.',
+ pt:'Clic en el alzado (arriba) o la planta (abajo) para crear un punto; luego arrástralo en la otra vista para fijar su otra coordenada.',
+ ln:`Recta: elige el punto ${pending.length+1} de 2 (clic en un punto existente o en un hueco para crear uno).`,
+ pl:`Plano: elige el punto ${pending.length+1} de 3 (clic en un punto existente o en un hueco para crear uno).`}[tool]}
+function hint3(){return{pt3:'Espacio 3D: clic sobre el plano PH para crear un punto (parte con z=0; luego ajusta su cota en Propiedades).',
+ ln3:`Espacio 3D: elige el punto ${pending3.length+1} de 2 (clic en una esfera existente o en el plano para crear uno nuevo).`}[tool3]}
+function render(full){draw2d();buildScene();if(full)panel();saveProgress();$('#st').textContent=hint3()||hint()}
+
+/* ---------- Ejemplo inicial ---------- */
+{let restored=false;try{const saved=localStorage.getItem(STORAGE_KEY);if(saved){const d=JSON.parse(saved);if(Array.isArray(d.o)&&d.cnt){objs=d.o;nid=d.nid||1;cnt=d.cnt;compute();restored=true}}}catch(e){localStorage.removeItem(STORAGE_KEY)}
+ if(!restored){const A=add('pt','free',[],{x:-50,y:30,z:45}),B=add('pt','free',[],{x:20,y:55,z:15}),C=add('pt','free',[],{x:60,y:15,z:55});
+ const al=add('pl','p3',[A.id,B.id,C.id]),D=add('pt','free',[],{x:-10,y:70,z:70}),s=add('ln','lperp',[D.id,al.id]);add('pt','inter',[s.id,al.id]);sel=al.id}hist=[];fut=[]}
+requestAnimationFrame(()=>{render(1);loop()});
+</script>
+</body></html>
