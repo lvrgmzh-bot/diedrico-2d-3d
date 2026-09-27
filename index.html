@@ -431,7 +431,7 @@ addEventListener('keydown',e=>{if(/INPUT|SELECT/.test(document.activeElement.tag
  else if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();redo()}
  else if(k==='v')setTool('sel');else if(k==='p')setTool('pt');else if(k==='r')setTool('ln');else if(k==='l')setTool('pl');
  else if(k==='escape'){setTool('sel');setTool3('orbit')}else if((k==='delete'||k==='backspace')&&sel)del(sel)});
-function hint(){if(msg)return msg;return{sel:'Arrastra un punto en alzado o planta: ambas vistas y el 3D se actualizan. Arrastra el fondo para desplazar, rueda para zoom.',
+function hint(){if(msg)return msg;return{sel:'Creado por Álvaro Gómez',
  pt:'Clic en el alzado (arriba) o la planta (abajo) para crear un punto; luego arrástralo en la otra vista para fijar su otra coordenada.',
  ln:`Recta: elige el punto ${pending.length+1} de 2 (clic en un punto existente o en un hueco para crear uno).`,
  pl:`Plano: elige el punto ${pending.length+1} de 3 (clic en un punto existente o en un hueco para crear uno).`}[tool]}
