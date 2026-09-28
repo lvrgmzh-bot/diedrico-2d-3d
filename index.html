@@ -35,6 +35,7 @@ svg.t-sel{cursor:default}svg.t-add{cursor:crosshair}
 .cap{fill:var(--mut);font-size:11px}.lb{font-size:13px;font-weight:600;paint-order:stroke;stroke:var(--panel);stroke-width:3px}
 .ref{stroke:var(--mut);stroke-dasharray:3 4;opacity:.7}.dm{fill:var(--mut);font-size:10.5px;paint-order:stroke;stroke:var(--panel);stroke-width:3px}
 .dl{stroke:var(--mut);opacity:.8}
+.aux{stroke:var(--mut);stroke-dasharray:5 4;opacity:.6}
 .qk{font-size:10.5px;font-weight:700;paint-order:stroke;stroke:var(--panel);stroke-width:3px}
 .qleg{position:absolute;left:8px;right:8px;top:30px;display:flex;font-size:10.5px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.15);z-index:2;text-align:center}
 .qleg>div{flex:1;padding:5px 4px;border-left:1px solid var(--line)}.qleg>div:first-child{border-left:0}
@@ -52,6 +53,13 @@ small{color:var(--mut)}
 .ob.on{background:var(--bg);outline:1px solid var(--acc)}.ob i{width:10px;height:10px;border-radius:50%;flex:0 0 10px}
 .ob span{flex:1;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ob button{padding:0 6px;border:0;background:none}
 footer{grid-area:s;padding:5px 12px;background:var(--panel);border-top:1px solid var(--line);color:var(--mut);min-height:1.4em}
+aside select{width:100%;box-sizing:border-box}
+.seg{display:flex;gap:4px;margin:2px 0 4px}.seg button{flex:1}
+.cond{border:1px solid var(--line);border-radius:8px;padding:5px;margin:5px 0;background:var(--bg)}.cond>select{margin-bottom:4px}
+.bst{margin:6px 0;padding:6px 8px;border-radius:8px;border:1px solid var(--line);line-height:1.35}
+.bst.ok{border-color:#10b981}.bst.bad{border-color:#ef4444}.bst small{display:block;margin-top:2px}
+button:disabled{opacity:.45;cursor:not-allowed}button[data-add],#bmk{width:100%;margin:4px 0}#bmk{background:var(--acc);border-color:var(--acc);color:#fff}#bmk:disabled{background:var(--panel);color:var(--mut)}
+.autor{margin-left:auto;color:var(--acc);font-size:13px;font-weight:600;font-style:italic;letter-spacing:.2px;white-space:nowrap}
 </style></head>
 <body>
 <div id="app">
@@ -63,13 +71,16 @@ footer{grid-area:s;padding:5px 12px;background:var(--panel);border-top:1px solid
  <label><input type="checkbox" id="cotas" checked>Cotas</label>
  <label><input type="checkbox" id="cuad">Cuadrantes</label>
  <label><input type="checkbox" id="trazas" checked>Trazas</label>
+ <button id="clraux" title="Borra todas las líneas auxiliares">Borrar auxiliares</button>
  <label>Abatimiento del PH <input type="range" id="ab" min="0" max="90" value="0"></label>
+ <span class="autor">By Alvaro Gomez</span>
 </header>
 <div id="tools">
  <button data-t="sel" class="on" title="Seleccionar y arrastrar (V)"><span>↖</span>Mover</button>
  <button data-t="pt" title="Punto (P)"><span>•</span>Punto</button>
  <button data-t="ln" title="Recta por 2 puntos (R)"><span>╱</span>Recta</button>
  <button data-t="pl" title="Plano por 3 puntos (L)"><span>▱</span>Plano</button>
+ <button data-t="aux" title="Línea auxiliar en 2D, sólo de apoyo visual (X)"><span>┄</span>Auxiliar</button>
 </div>
 <main id="views">
  <section id="v2"><div class="tag">Alzado arriba · Planta abajo</div><div id="qleg" class="qleg hidden"></div><svg id="svg" class="t-sel"></svg></section>
@@ -85,10 +96,9 @@ footer{grid-area:s;padding:5px 12px;background:var(--panel);border-top:1px solid
  <details open><summary>Punto por coordenadas</summary>
   <div class="row"><input id="nx" type="number" value="0" aria-label="x"><input id="ny" type="number" value="30" aria-label="y"><input id="nz" type="number" value="30" aria-label="z"><button id="addp">Añadir</button></div>
   <small>x sobre la LT · y alejamiento · z cota</small></details>
- <details open><summary>Añadir por tipo</summary>
-  <select id="ct" style="width:100%"></select>
-  <div class="row"><select id="ca"></select><select id="cb"></select><select id="cc"></select></div>
-  <button id="mk">Crear</button></details>
+ <details open><summary>Construir</summary>
+  <small>Elige qué crear, su posición y las condiciones que debe cumplir. Ej.: Recta · frontal · contenida en Q · por A.</small>
+  <div id="bld"></div></details>
  <details open><summary>Propiedades</summary><div id="props"></div></details>
  <details open><summary>Objetos</summary><div id="objs"></div></details>
 </aside>
@@ -106,15 +116,12 @@ footer{grid-area:s;padding:5px 12px;background:var(--panel);border-top:1px solid
    recorre objs y recalcula geo de todos vía calc(o,R) usando refs → esa
    misma geo alimenta el SVG (draw2d) y Three.js (buildScene). No hay
    estado duplicado: 2D y 3D son sólo "vistas" de objs.
- Añadir una construcción nueva:
-   1) nuevo case en calc() (recibe R=[geo_de_cada_ref] en el orden de refs)
-   2) entrada en CONS: {n:'texto menú',a:'pt'|'ln'|'pl',b:...,c:...,k:'pt'|'ln'|'pl'}
-      (a/b/c = tipos de las hasta 3 referencias que pide el panel Construir;
-      k = tipo de objeto que produce). Se auto-registra en el desplegable.
-   3) opcional: entrada en DESC para el texto corto en el panel de Objetos.
-   calc() debe devolver null si la construcción es degenerada (paralelismos,
-   puntos alineados, rectas que se cruzan...); el panel Construir comprueba
-   el resultado ANTES de crear el objeto y no deja crear nada si es null.
+ Construcción de objetos (panel «Construir»): t:'con' + o.spec={k:'pt'|'ln'|'pl',type,op,conds:[{r,ref,val}],A,B}.
+   Es un SOLUCIONADOR POR CONDICIONES: solveSpec(spec)→{geo,free}|{err}. Cada condición (catálogo REL) aporta restricciones:
+   dirección fija, dirección ⟂ a un vector, punto de paso, plano que debe contener al objeto... (solveLine/solvePlane/solvePoint).
+   Relación nueva = (1) entrada en REL, (2) su case en solve*, (3) símbolo en SYM. NO hace falta tocar el panel: se genera solo.
+   BUILT: referencias predefinidas con id negativo (PH, PV, PP, bisectores, LT, O); se usan como cualquier otro objeto.
+   Los case antiguos de calc() (l2, p3, lperp...) siguen sólo para las herramientas de clic 2D/3D.
  Convenio diédrico: x = abscisa (posición sobre LT), y = alejamiento
    (planta, hacia abajo en el SVG), z = cota (alzado, hacia arriba).
    Cuadrantes: 1(y≥0,z≥0) 2(y<0,z≥0) 3(y<0,z<0) 4(y≥0,z<0); con el
@@ -138,18 +145,27 @@ function planeInter(A,B){
  const a11=A.n[i0],a12=A.n[i1],a21=B.n[i0],a22=B.n[i1],det=a11*a22-a12*a21;if(Math.abs(det)<1e-9)return null;
  const p=[0,0,0];p[ax]=0;p[i0]=(d1*a22-d2*a12)/det;p[i1]=(a11*d2-a21*d1)/det;
  return{p,d:dir}}
+const AX={x:[1,0,0],y:[0,1,0],z:[0,0,1]};
+const onPlane=(P,pl)=>Math.abs(dot(sub(P,pl.p),pl.n))<1e-4;
 const KLABEL={pt:'punto',ln:'recta',pl:'plano'};
 const QCOL=['','#2563eb','#059669','#d97706','#db2777'],QROM=['','I','II','III','IV'];
 const quadNum=(y,z)=>y>=0?(z>=0?1:4):(z>=0?2:3);
 let objs=[],nid=1,cnt={pt:0,ln:0,pl:0},sel=null,pending=[],tool='sel',tool3='orbit',pending3=[],hist=[],fut=[],drag=null,pan=null,msg='';
+let aux=[],auxId=1,auxPend=null; // líneas auxiliares 2D: {id,view:'a'|'p',x1,y1,x2,y2} — sólo visuales, no forman parte del modelo 3D
 const V={ox:0,oy:0,s:3,init:0};
-const byId=id=>objs.find(o=>o.id===id);
+const BUILT=Object.fromEntries([
+ {id:-1,name:'PH',kind:'pl',geo:{p:[0,0,0],n:[0,0,1]}},{id:-2,name:'PV',kind:'pl',geo:{p:[0,0,0],n:[0,1,0]}},
+ {id:-3,name:'PP (perfil)',kind:'pl',geo:{p:[0,0,0],n:[1,0,0]}},{id:-4,name:'1.er bisector',kind:'pl',geo:{p:[0,0,0],n:norm([0,1,-1])}},
+ {id:-5,name:'2.º bisector',kind:'pl',geo:{p:[0,0,0],n:norm([0,1,1])}},{id:-6,name:'LT',kind:'ln',geo:{p:[0,0,0],d:[1,0,0]}},
+ {id:-7,name:'O (origen)',kind:'pt',geo:[0,0,0]}].map(o=>[o.id,o]));
+const byId=id=>id<0?BUILT[id]:objs.find(o=>o.id===id);
 
 /* ---------- Modelo: todo vive en 3D, el diédrico es proyección ---------- */
 function calc(o,R){
  const t=o.t,P=R[0],Q=R[1];
  switch(t){
  case 'free':return[o.v.x,o.v.y,o.v.z];
+ case 'con':{const r=o.spec&&solveSpec(o.spec);if(!r||!r.geo)return null;if(r.free)r.geo.free=1;return r.geo}
  case 'mid':return P.map((c,i)=>(c+Q[i])/2);
  case 'inter':{const den=dot(Q.n,P.d);if(Math.abs(den)<1e-9)return null;const k=dot(Q.n,sub(Q.p,P.p))/den;return P.p.map((c,i)=>c+k*P.d[i])}
  case 'l2':{const d=norm(sub(Q,P));return d&&{p:P,d}}
@@ -161,6 +177,13 @@ function calc(o,R){
  case 'lhor':{if(Math.abs(P[2]-Q[2])>1e-6)return null;const d=norm(sub(Q,P));return d&&{p:P,d:[d[0],d[1],0]}}
  case 'lfront':{if(Math.abs(P[1]-Q[1])>1e-6)return null;const d=norm(sub(Q,P));return d&&{p:P,d:[d[0],0,d[2]]}}
  case 'lperf':{if(Math.abs(P[0]-Q[0])>1e-6)return null;const d=norm(sub(Q,P));return d&&{p:P,d:[0,d[1],d[2]]}}
+ // --- de tipo notable, CONTENIDA en un plano dado, por un punto (P=punto, Q=plano) ---
+ case 'llt_in':{if(!onPlane(P,Q)||Math.abs(dot(AX.x,Q.n))>1e-6)return null;return{p:P,d:AX.x}}
+ case 'lvert_in':{if(!onPlane(P,Q)||Math.abs(dot(AX.z,Q.n))>1e-6)return null;return{p:P,d:AX.z}}
+ case 'lpunta_in':{if(!onPlane(P,Q)||Math.abs(dot(AX.y,Q.n))>1e-6)return null;return{p:P,d:AX.y}}
+ case 'lhor_in':{if(!onPlane(P,Q))return null;const d=norm(cross(AX.z,Q.n));return d&&{p:P,d}}
+ case 'lfront_in':{if(!onPlane(P,Q))return null;const d=norm(cross(AX.y,Q.n));return d&&{p:P,d}}
+ case 'lperf_in':{if(!onPlane(P,Q))return null;const d=norm(cross(AX.x,Q.n));return d&&{p:P,d}}
  case 'p3':{const n=norm(cross(sub(Q,P),sub(R[2],P)));return n&&{p:P,n}}
  case 'phor':return{p:P,n:[0,0,1]};
  case 'pfront':return{p:P,n:[0,1,0]};
@@ -170,6 +193,13 @@ function calc(o,R){
  case 'pperp':return{p:P,n:Q.d};
  case 'ppar':return{p:P,n:Q.n};
  case 'pp2':return planeInter(P,Q);
+ // --- plano notable QUE CONTIENE una recta dada (P=recta); sólo válido si la recta ya es de ese tipo ---
+ case 'phor_in':return Math.abs(P.d[2])>1e-6?null:{p:P.p,n:AX.z};
+ case 'pfront_in':return Math.abs(P.d[1])>1e-6?null:{p:P.p,n:AX.y};
+ case 'pperf_in':return Math.abs(P.d[0])>1e-6?null:{p:P.p,n:AX.x};
+ // --- plano perpendicular a X que contiene una recta (P=recta que contiene, Q=plano o recta de referencia) ---
+ case 'pl_perp_line_in':{const n=norm(cross(P.d,Q.n));return n&&{p:P.p,n}}
+ case 'pl_perp_ln_ln':{if(Math.abs(dot(P.d,Q.d))>1e-6)return null;return{p:Q.p,n:P.d}}
  case 'pl_lp':{const n=norm(cross(P.d,sub(Q,P.p)));return n&&{p:P.p,n}}
  case 'pl_ll':{let n=norm(cross(P.d,Q.d));
   if(n)return Math.abs(dot(sub(Q.p,P.p),n))>1e-6?null:{p:P.p,n};
@@ -188,54 +218,163 @@ function add(kind,t,refs,v){
 function del(id){snap();const rm=new Set([id]);let ch=1;while(ch){ch=0;for(const o of objs)if(!rm.has(o.id)&&o.refs.some(r=>rm.has(r))){rm.add(o.id);ch=1}}
  objs=objs.filter(o=>!rm.has(o.id));if(rm.has(sel))sel=null;pending=pending.filter(x=>!rm.has(x));compute();render(1)}
 const ser=()=>JSON.stringify({o:objs.map(({geo,...r})=>r),nid,cnt});
-const STORAGE_KEY='diedrico-2d-3d-v1';
-function saveProgress(){try{localStorage.setItem(STORAGE_KEY,ser())}catch(e){msg='No se pudo guardar el progreso en este navegador.'}}
 function snap(){hist.push(ser());if(hist.length>80)hist.shift();fut=[]}
 function load(s){const d=JSON.parse(s);objs=d.o;nid=d.nid;cnt=d.cnt;if(!byId(sel))sel=null;pending=[];compute();render(1)}
 function undo(){if(!hist.length)return;fut.push(ser());load(hist.pop())}
 function redo(){if(!fut.length)return;hist.push(ser());load(fut.pop())}
 
-const CONS={
- // --- Punto ---
- mid:{n:'Punto medio de dos puntos',a:'pt',b:'pt',k:'pt'},
- symp:{n:'Simétrico de un punto respecto de otro (centro)',a:'pt',b:'pt',k:'pt'},
- inter:{n:'Intersección de una recta y un plano',a:'ln',b:'pl',k:'pt'},
- proj:{n:'Proyección de un punto sobre un plano',a:'pt',b:'pl',k:'pt'},
- projl:{n:'Proyección de un punto sobre una recta',a:'pt',b:'ln',k:'pt'},
- // --- Recta ---
- l2:{n:'Por dos puntos',a:'pt',b:'pt',k:'ln'},
- lpar:{n:'Paralela a una recta, por un punto',a:'pt',b:'ln',k:'ln'},
- lperp:{n:'Perpendicular a un plano, por un punto',a:'pt',b:'pl',k:'ln'},
- llt:{n:'Paralela a la LT (fronto-horizontal), por un punto',a:'pt',k:'ln'},
- lvert:{n:'Vertical, por un punto',a:'pt',k:'ln'},
- lpunta:{n:'De punta, por un punto',a:'pt',k:'ln'},
- lhor:{n:'Horizontal, por dos puntos (misma cota)',a:'pt',b:'pt',k:'ln'},
- lfront:{n:'Frontal, por dos puntos (mismo alejamiento)',a:'pt',b:'pt',k:'ln'},
- lperf:{n:'De perfil, por dos puntos (misma abscisa)',a:'pt',b:'pt',k:'ln'},
- pp2:{n:'Intersección de dos planos',a:'pl',b:'pl',k:'ln'},
- // --- Plano ---
- p3:{n:'Por tres puntos',a:'pt',b:'pt',c:'pt',k:'pl'},
- pl_lp:{n:'Que contiene una recta y pasa por un punto',a:'ln',b:'pt',k:'pl'},
- pl_ll:{n:'Que contiene dos rectas (paralelas o que se cortan)',a:'ln',b:'ln',k:'pl'},
- pperp:{n:'Perpendicular a una recta, por un punto',a:'pt',b:'ln',k:'pl'},
- ppar:{n:'Paralelo a otro plano, por un punto',a:'pt',b:'pl',k:'pl'},
- pltl_pp:{n:'Paralelo a la LT, por dos puntos',a:'pt',b:'pt',k:'pl'},
- pltl_pl:{n:'Paralelo a la LT, que contiene una recta',a:'ln',k:'pl'},
- phor:{n:'Horizontal, por un punto',a:'pt',k:'pl'},
- pfront:{n:'Frontal, por un punto',a:'pt',k:'pl'},
- pperf:{n:'De perfil, por un punto',a:'pt',k:'pl'},
- bis1:{n:'1.er bisector (y = z)',k:'pl'},
- bis2:{n:'2.º bisector (y = −z)',k:'pl'}};
+/* ================= CONSTRUCTOR GENÉRICO (condiciones → objeto) ================= */
+const kindOf=id=>{const o=byId(id);return o&&o.kind};
+const nz=v=>Math.hypot(...v),isPar=(a,b)=>nz(cross(a,b))<1e-6*nz(a)*nz(b);
+const CP=(r,v)=>r==='cota'?{p:[0,0,v],n:AX.z}:r==='alej'?{p:[0,v,0],n:AX.y}:{p:[v,0,0],n:AX.x};
+const lnPl=(L,pl)=>{const den=dot(pl.n,L.d);if(Math.abs(den)<1e-9*nz(pl.n)*nz(L.d))return null;const k=dot(pl.n,sub(pl.p,L.p))/den;return L.p.map((c,i)=>c+k*L.d[i])};
+const inPl=(q,pl)=>Math.abs(dot(sub(q,pl.p),pl.n))<1e-4*Math.max(1,nz(pl.n));
+const distLn=(q,L)=>nz(cross(sub(q,L.p),L.d))/nz(L.d);
+const projPl=(P,pl)=>{const k=dot(sub(P,pl.p),pl.n)/dot(pl.n,pl.n);return P.map((c,i)=>c-k*pl.n[i])};
+const projLn=(P,L)=>{const t=dot(sub(P,L.p),L.d)/dot(L.d,L.d);return L.p.map((c,i)=>c+t*L.d[i])};
+function lnLn(A,B){const w=sub(A.p,B.p),a=dot(A.d,A.d),b=dot(A.d,B.d),c=dot(B.d,B.d),d=dot(A.d,w),e=dot(B.d,w),den=a*c-b*b;
+ if(Math.abs(den)<1e-9*a*c)return{err:'Las rectas son paralelas: no tienen un punto común.'};
+ const t=(b*e-c*d)/den,s=(a*e-b*d)/den,q1=A.p.map((x,i)=>x+t*A.d[i]),q2=B.p.map((x,i)=>x+s*B.d[i]);
+ if(nz(sub(q1,q2))>1e-4)return{err:'Las rectas se cruzan (no se cortan): no hay punto común.'};return{q:q1}}
+const tri=(A,B,C)=>{const det=dot(A.n,cross(B.n,C.n));if(Math.abs(det)<1e-9)return null;
+ const a=dot(A.n,A.p),b=dot(B.n,B.p),c=dot(C.n,C.p),x=cross(B.n,C.n),y=cross(C.n,A.n),z=cross(A.n,B.n);
+ return[0,1,2].map(i=>(a*x[i]+b*y[i]+c*z[i])/det)};
+const HINTS=[[.35,.5,.8],[1,.6,.3],[0,1,.4],[0,0,1],[1,0,0]];
+const INCOMP='Las condiciones son incompatibles entre sí (por ejemplo, los puntos dados no cumplen el tipo o la relación pedida).';
+/* Halla un vector (dirección de recta o normal de plano) que sea PARALELO a todos los de "fixed" y PERPENDICULAR a todos los de "perps". */
+function solveVec(fixed,perps){
+ fixed=fixed.filter(f=>nz(f)>1e-9);const ps=perps.filter(a=>nz(a)>1e-9);
+ if(fixed.length){const v=norm(fixed[0]);
+  if(fixed.some(f=>!isPar(f,v)))return{err:INCOMP};
+  if(ps.some(a=>Math.abs(dot(v,a))>1e-6*nz(a)))return{err:INCOMP};
+  return{v,free:false}}
+ if(!ps.length)return{v:norm(HINTS[0]),free:true};
+ const a1=ps[0],a2=ps.find(a=>!isPar(a,a1));
+ if(a2){const v=norm(cross(a1,a2));if(ps.some(a=>Math.abs(dot(v,a))>1e-6*nz(a)))return{err:INCOMP};return{v,free:false}}
+ const u=norm(a1);
+ for(const h of HINTS){const w=sub(h,u.map(c=>c*dot(h,u)));if(nz(w)>1e-6)return{v:norm(w),free:true}}
+ return{err:'No se pudo elegir una solución.'}}
+const specRefs=s=>{const r=[];if(s.k==='pt'&&s.op!=='cond')r.push(s.A,s.B);else for(const c of s.conds){const d=REL[s.k][c.r];if(d&&d.t)r.push(c.ref)}return r};
+function maxDir(g,a,what){const n=norm(g.n),d=sub(a,n.map(x=>x*dot(a,n)));
+ return nz(d)<1e-6?{err:`El plano es paralelo al ${what}: no tiene línea de máxima ${what==='PH'?'pendiente':'inclinación'}.`}:{d}}
+
+function solveLine(s,G){
+ const pts=[],pls=[],cuts=[],fixed=[],perps=[],ty=s.type;
+ if(ty==='hor')perps.push(AX.z);else if(ty==='front')perps.push(AX.y);else if(ty==='perf')perps.push(AX.x);
+ else if(ty==='vert')fixed.push(AX.z);else if(ty==='punta')fixed.push(AX.y);else if(ty==='lt')fixed.push(AX.x);
+ for(const c of s.conds){const d=REL.ln[c.r],g=d.t?G(c.ref):null,v=+c.val||0,kd=d.t?kindOf(c.ref):null;
+  switch(c.r){
+   case'pass':pts.push(g);break;
+   case'par':kd==='ln'?fixed.push(g.d):perps.push(g.n);break;
+   case'perp':kd==='ln'?perps.push(g.d):fixed.push(g.n);break;
+   case'perpcut':perps.push(g.d);cuts.push(g);break;
+   case'cut':cuts.push(g);break;
+   case'in':pls.push(g);perps.push(g.n);break;
+   case'cota':case'alej':case'abs':{const pl=CP(c.r,v);pls.push(pl);perps.push(pl.n);break}
+   case'maxp':case'maxi':{const m=maxDir(g,c.r==='maxp'?AX.z:AX.y,c.r==='maxp'?'PH':'PV');if(m.err)return m;pls.push(g);perps.push(g.n);fixed.push(m.d);break}}}
+ let p=null,posFree=false;
+ if(pts.length)p=pts[0];
+ else if(cuts.length&&pls.length)p=lnPl(cuts[0],pls[0]);
+ if(!p&&pls.length>=2){const pi=planeInter(pls[0],pls[1]);if(pi)p=pi.p}
+ if(!p&&pls.length){p=pls[0].p;posFree=true}
+ if(!p&&cuts.length){p=cuts[0].p;posFree=true}
+ if(!p){p=[0,30,30];posFree=true}
+ for(const L of cuts){const n=cross(L.d,sub(p,L.p));if(nz(n)>1e-6)perps.push(n)}
+ for(let i=1;i<pts.length;i++){const d=sub(pts[i],pts[0]);if(nz(d)<1e-9)return{err:'Dos de los puntos indicados coinciden.'};fixed.push(d)}
+ const r=solveVec(fixed,perps);if(r.err)return r;const d=r.v;
+ if(pts.some(P=>distLn(P,{p,d})>1e-4))return{err:'Los puntos indicados no están sobre una recta que cumpla las condiciones.'};
+ if(pls.some(pl=>!inPl(p,pl)))return{err:'La recta no puede estar contenida en todos los planos indicados (el punto de paso no pertenece a alguno).'};
+ return{geo:{p,d},free:r.free||posFree}}
+
+function solvePlane(s,G){
+ const pts=[],fixed=[],perps=[],ty=s.type;
+ if(ty==='hor')fixed.push(AX.z);else if(ty==='front')fixed.push(AX.y);else if(ty==='perf')fixed.push(AX.x);
+ else if(ty==='proyh')perps.push(AX.z);else if(ty==='proyv')perps.push(AX.y);else if(ty==='lt')perps.push(AX.x);
+ for(const c of s.conds){const d=REL.pl[c.r],g=d.t?G(c.ref):null;
+  switch(c.r){
+   case'pass':pts.push(g);break;
+   case'cont':pts.push(g.p);perps.push(g.d);break;
+   case'par':perps.push(g.d);break;
+   case'parpl':fixed.push(g.n);break;
+   case'perp':fixed.push(g.d);break;
+   case'perppl':perps.push(g.n);break;
+   case'maxp':case'maxi':{const a=c.r==='maxp'?AX.z:AX.y,dn=norm(g.d);
+    if(Math.abs(dot(dn,a))<1e-9)return{err:`Una recta paralela al ${c.r==='maxp'?'PH':'PV'} no puede ser línea de máxima ${c.r==='maxp'?'pendiente':'inclinación'}.`};
+    pts.push(g.p);perps.push(g.d);
+    if(isPar(g.d,a))perps.push(a);else fixed.push(sub(a,dn.map(x=>x*dot(a,dn))));break}}}
+ for(let i=1;i<pts.length;i++){const d=sub(pts[i],pts[0]);if(nz(d)>1e-9)perps.push(d)}
+ const r=solveVec(fixed,perps);if(r.err)return r;
+ const p=pts[0]||[0,30,30],pl={p,n:r.v};
+ if(pts.some(P=>!inPl(P,pl)))return{err:'Los elementos indicados no caben en un mismo plano con esas condiciones.'};
+ return{geo:pl,free:r.free||!pts.length}}
+
+function solvePoint(s,G){
+ if(s.op==='mid'){const A=G(s.A),B=G(s.B);return{geo:A.map((c,i)=>(c+B[i])/2)}}
+ if(s.op==='sym'||s.op==='proj'){const A=G(s.A),B=G(s.B),k=kindOf(s.B);
+  const q=k==='pt'?B:k==='pl'?projPl(A,B):projLn(A,B);
+  return{geo:s.op==='proj'?q:A.map((c,i)=>2*q[i]-c)}}
+ const lns=[],pls=[];
+ for(const c of s.conds){const d=REL.pt[c.r];
+  if(d.t){const g=G(c.ref);(kindOf(c.ref)==='ln'?lns:pls).push(g)}else pls.push(CP(c.r,+c.val||0))}
+ let q=null,free=false;
+ if(lns.length>=2){const r=lnLn(lns[0],lns[1]);if(r.err)return r;q=r.q;
+  if(lns.some(L=>distLn(q,L)>1e-4))return{err:'Las rectas indicadas no se cortan en un mismo punto.'}}
+ else if(lns.length===1){const L=lns[0];
+  if(pls.length){for(const pl of pls){q=lnPl(L,pl);if(q)break}
+   if(!q)return{err:'La recta es paralela al plano (o está contenida en él): no hay un punto único.'}}
+  else{q=L.p;free=true}}
+ else{
+  if(!pls.length)return{err:'Añade al menos una condición (pertenece a…, cota =…).'};
+  if(pls.length===1){q=pls[0].p;free=true}
+  else if(pls.length===2){const pi=planeInter(pls[0],pls[1]);if(!pi)return{err:'Los planos son paralelos: no tienen puntos comunes.'};q=pi.p;free=true}
+  else{for(let i=0;i<pls.length&&!q;i++)for(let j=i+1;j<pls.length&&!q;j++)for(let k=j+1;k<pls.length&&!q;k++)q=tri(pls[i],pls[j],pls[k]);
+   if(!q)return{err:'Los planos no se cortan en un único punto.'}}}
+ if(pls.some(pl=>!inPl(q,pl)))return{err:'Las condiciones no se cumplen a la vez: no hay ningún punto que pertenezca a todos los elementos indicados.'};
+ return{geo:q,free}}
+
+function solveSpec(s){
+ const G=id=>{const o=byId(id);return o&&o.geo};
+ if(specRefs(s).some(id=>id==null||!G(id)))return{err:'Falta elegir un elemento de referencia (o está indefinido).'};
+ return s.k==='pt'?solvePoint(s,G):s.k==='ln'?solveLine(s,G):solvePlane(s,G)}
+
+/* Catálogo de relaciones: t = tipos de objeto que admite como referencia; sin t = valor numérico. */
+const REL={
+ pt:{on:{l:'pertenece a (recta o plano)',t:['ln','pl']},cota:{l:'tiene cota =',v:1},alej:{l:'tiene alejamiento =',v:1},abs:{l:'tiene abscisa =',v:1}},
+ ln:{pass:{l:'pasa por el punto',t:['pt']},par:{l:'es paralela a (recta o plano)',t:['ln','pl']},perp:{l:'es perpendicular a (recta o plano)',t:['ln','pl']},
+  perpcut:{l:'es perpendicular a la recta y la corta',t:['ln']},cut:{l:'corta a la recta',t:['ln']},in:{l:'está contenida en el plano',t:['pl']},
+  cota:{l:'está en el plano de cota =',v:1},alej:{l:'está en el plano de alejamiento =',v:1},abs:{l:'está en el plano de abscisa =',v:1},
+  maxp:{l:'es la línea de máxima pendiente del plano',t:['pl']},maxi:{l:'es la línea de máxima inclinación del plano',t:['pl']}},
+ pl:{pass:{l:'pasa por el punto',t:['pt']},cont:{l:'contiene la recta',t:['ln']},par:{l:'es paralelo a la recta',t:['ln']},parpl:{l:'es paralelo al plano',t:['pl']},
+  perp:{l:'es perpendicular a la recta',t:['ln']},perppl:{l:'es perpendicular al plano',t:['pl']},
+  maxp:{l:'tiene como línea de máxima pendiente a la recta',t:['ln']},maxi:{l:'tiene como línea de máxima inclinación a la recta',t:['ln']}}};
+const TYPES={
+ ln:[['','cualquiera',''],['hor','horizontal (∥ PH)','horizontal'],['front','frontal (∥ PV)','frontal'],['vert','vertical (⟂ PH)','vertical'],['punta','de punta (⟂ PV)','de punta'],['perf','de perfil (⟂ LT)','de perfil'],['lt','paralela a la LT','∥ LT']],
+ pl:[['','cualquiera',''],['hor','horizontal (∥ PH)','horizontal'],['front','frontal (∥ PV)','frontal'],['perf','de perfil (⟂ LT)','de perfil'],['proyh','proyectante horizontal (⟂ PH)','proyectante horiz.'],['proyv','proyectante vertical / de canto (⟂ PV)','de canto'],['lt','paralelo a la LT','∥ LT']]};
+const SYM={pass:'por',par:'∥',perp:'⟂',perpcut:'⟂ y corta a',cut:'corta a',in:'en',cont:'contiene',parpl:'∥',perppl:'⟂',maxp:'máx. pend. de',maxi:'máx. incl. de',on:'∈'};
+const SYMPL={maxp:'máx. pend. =',maxi:'máx. incl. ='},VS={cota:'cota=',alej:'alej.=',abs:'abscisa='};
+function descSpec(s){
+ const N=id=>{const r=byId(id);return r?r.name:'?'};
+ if(s.k==='pt'&&s.op!=='cond')return{mid:`medio de ${N(s.A)}${N(s.B)}`,sym:`simétrico de ${N(s.A)} resp. de ${N(s.B)}`,proj:`proy. de ${N(s.A)} sobre ${N(s.B)}`}[s.op];
+ const parts=[],ty=(TYPES[s.k]||[]).find(t=>t[0]&&t[0]===s.type);if(ty)parts.push(ty[2]);
+ for(const c of s.conds){const d=REL[s.k][c.r];if(!d)continue;parts.push(d.t?`${(s.k==='pl'&&SYMPL[c.r])||SYM[c.r]} ${N(c.ref)}`:`${VS[c.r]}${c.val}`)}
+ return parts.join(' · ')||'sin condiciones'}
+function info(o){const b=o.kind==='pt'?`x=${f2(o.geo[0])} · y=${f2(o.geo[1])} · z=${f2(o.geo[2])}`:o.kind==='ln'?`Dirección (${o.geo.d.map(f2)})`:`Normal (${o.geo.n.map(f2)}) · n·X = ${f2(dot(o.geo.n,o.geo.p))}`;
+ return b+(o.geo.free?' · una de las infinitas soluciones':'')}
+/* ================= FIN CONSTRUCTOR ================= */
 const nm=(o,i)=>{const r=byId(o.refs[i]);return r?r.name:'?'};
-const DESC={free:o=>'punto',mid:o=>`medio de ${nm(o,0)}${nm(o,1)}`,symp:o=>`simétrico de ${nm(o,0)} resp. de ${nm(o,1)}`,inter:o=>`${nm(o,0)} ∩ ${nm(o,1)}`,
+const DESC={con:o=>descSpec(o.spec),free:o=>'punto',mid:o=>`medio de ${nm(o,0)}${nm(o,1)}`,symp:o=>`simétrico de ${nm(o,0)} resp. de ${nm(o,1)}`,inter:o=>`${nm(o,0)} ∩ ${nm(o,1)}`,
  proj:o=>`proy. de ${nm(o,0)} sobre ${nm(o,1)}`,projl:o=>`proy. de ${nm(o,0)} sobre ${nm(o,1)}`,l2:o=>`recta ${nm(o,0)}${nm(o,1)}`,
  lpar:o=>`por ${nm(o,0)} ∥ ${nm(o,1)}`,lperp:o=>`por ${nm(o,0)} ⟂ ${nm(o,1)}`,llt:o=>`por ${nm(o,0)} ∥ LT`,lvert:o=>`vertical por ${nm(o,0)}`,lpunta:o=>`de punta por ${nm(o,0)}`,
  lhor:o=>`horizontal ${nm(o,0)}${nm(o,1)}`,lfront:o=>`frontal ${nm(o,0)}${nm(o,1)}`,lperf:o=>`de perfil ${nm(o,0)}${nm(o,1)}`,
+ llt_in:o=>`∥ LT en ${nm(o,1)} por ${nm(o,0)}`,lvert_in:o=>`vertical en ${nm(o,1)} por ${nm(o,0)}`,lpunta_in:o=>`de punta en ${nm(o,1)} por ${nm(o,0)}`,
+ lhor_in:o=>`horizontal en ${nm(o,1)} por ${nm(o,0)}`,lfront_in:o=>`frontal en ${nm(o,1)} por ${nm(o,0)}`,lperf_in:o=>`de perfil en ${nm(o,1)} por ${nm(o,0)}`,
+ phor_in:o=>`horizontal, contiene ${nm(o,0)}`,pfront_in:o=>`frontal, contiene ${nm(o,0)}`,pperf_in:o=>`de perfil, contiene ${nm(o,0)}`,
+ pl_perp_line_in:o=>`⟂ ${nm(o,1)}, contiene ${nm(o,0)}`,pl_perp_ln_ln:o=>`⟂ ${nm(o,0)}, contiene ${nm(o,1)}`,
  pp2:o=>`${nm(o,0)} ∩ ${nm(o,1)}`,p3:o=>`plano ${nm(o,0)}${nm(o,1)}${nm(o,2)}`,pl_lp:o=>`por ${nm(o,0)} y ${nm(o,1)}`,pl_ll:o=>`por ${nm(o,0)} y ${nm(o,1)}`,
  pperp:o=>`⟂ ${nm(o,1)} por ${nm(o,0)}`,ppar:o=>`∥ ${nm(o,1)} por ${nm(o,0)}`,pltl_pp:o=>`∥ LT por ${nm(o,0)}${nm(o,1)}`,pltl_pl:o=>`∥ LT que contiene ${nm(o,0)}`,
  phor:o=>`horizontal por ${nm(o,0)}`,pfront:o=>`frontal por ${nm(o,0)}`,pperf:o=>`de perfil por ${nm(o,0)}`,bis1:o=>'1.er bisector',bis2:o=>'2.º bisector'};
-const desc=o=>o.kind==='pt'?`(${fmt(o.geo[0])}, ${fmt(o.geo[1])}, ${fmt(o.geo[2])})`:DESC[o.t](o);
-const info=o=>o.kind==='pt'?`x=${f2(o.geo[0])} · y=${f2(o.geo[1])} · z=${f2(o.geo[2])}`:o.kind==='ln'?`Dirección (${o.geo.d.map(f2)})`:`Normal (${o.geo.n.map(f2)}) · n·X = ${f2(dot(o.geo.n,o.geo.p))}`;
+const desc=o=>o.t==='con'?descSpec(o.spec):o.kind==='pt'?`(${fmt(o.geo[0])}, ${fmt(o.geo[1])}, ${fmt(o.geo[2])})`:DESC[o.t](o);
+const infoOld=o=>o.kind==='pt'?`x=${f2(o.geo[0])} · y=${f2(o.geo[1])} · z=${f2(o.geo[2])}`:o.kind==='ln'?`Dirección (${o.geo.d.map(f2)})`:`Normal (${o.geo.n.map(f2)}) · n·X = ${f2(dot(o.geo.n,o.geo.p))}`;
 
 /* ---------- 2D (SVG) ---------- */
 const svg=$('#svg');
@@ -292,7 +431,10 @@ function draw2d(){
   for(const[cy,v,nn]of[[za,'a',P2],[yp,'p',P1]]){
    if(ring)h3+=`<circle cx="${ax}" cy="${cy}" r="11" fill="none" stroke="${c}" stroke-width="1.6" pointer-events="none"/>`;
    h3+=`<circle cx="${ax}" cy="${cy}" r="6" fill="${c}" stroke="var(--panel)" stroke-width="1.5" data-id="${o.id}" data-v="${v}" style="cursor:grab"/>`+lab(o.name+nn,ax,cy,c)}}
- svg.innerHTML=h+h1+h2+h3}
+ let ha='';
+ for(const a of aux){const Y=a.view==='a'?YA:YP;ha+=`<line class="aux" x1="${X(a.x1)}" y1="${Y(a.y1)}" x2="${X(a.x2)}" y2="${Y(a.y2)}" data-aux="${a.id}"/><line x1="${X(a.x1)}" y1="${Y(a.y1)}" x2="${X(a.x2)}" y2="${Y(a.y2)}" stroke="transparent" stroke-width="10" data-aux="${a.id}"/>`}
+ if(auxPend){const Y=auxPend.view==='a'?YA:YP;ha+=`<line class="aux" x1="${X(auxPend.x1)}" y1="${Y(auxPend.y1)}" x2="${X(auxPend.x2)}" y2="${Y(auxPend.y2)}"/>`}
+ svg.innerHTML=h+ha+h1+h2+h3}
 
 /* ---------- 3D (Three.js) ---------- */
 const T=(x,y,z)=>new THREE.Vector3(x,z,y);
@@ -372,6 +514,13 @@ svg.addEventListener('pointerdown',e=>{
   else{sel=null;pan={px,py,ox:V.ox,oy:V.oy}}
   render(1);return}
  if(tool==='pt'){sel=newPointAt(px,py).id;render(1);return}
+ if(tool==='aux'){
+  const auxEl=e.target.closest('[data-aux]');
+  if(auxEl){aux=aux.filter(a=>a.id!==+auxEl.dataset.aux);render(0);return}
+  const view=py<V.oy?'a':'p',lx=(px-V.ox)/V.s,ly=view==='a'?(V.oy-py)/V.s:(py-V.oy)/V.s;
+  if(!auxPend)auxPend={view,x1:lx,y1:ly,x2:lx,y2:ly};
+  else{if(auxPend.view===view)aux.push({id:auxId++,view,x1:auxPend.x1,y1:auxPend.y1,x2:lx,y2:ly});auxPend=null}
+  render(0);return}
  let pid=null;if(id){if(byId(id).kind==='pt')pid=id}else pid=newPointAt(px,py).id;
  if(!pid||pending.includes(pid))return;pending.push(pid);
  const need=tool==='ln'?2:3;
@@ -379,6 +528,7 @@ svg.addEventListener('pointerdown',e=>{
  render(1)});
 svg.addEventListener('pointermove',e=>{
  const r=svg.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+ if(auxPend){const lx=(px-V.ox)/V.s,ly=auxPend.view==='a'?(V.oy-py)/V.s:(py-V.oy)/V.s;auxPend.x2=lx;auxPend.y2=ly;draw2d();return}
  if(drag){if(!drag.moved){snap();drag.moved=1}const o=byId(drag.id),x=(px-V.ox)/V.s;o.v.x=sn(x);
   if(drag.v==='a')o.v.z=sn((V.oy-py)/V.s);else o.v.y=sn((py-V.oy)/V.s);
   compute();render(0);syncProps()}
@@ -394,32 +544,56 @@ function panel(){
  if(o){p=`<label>Nombre<input id="pn" value="${o.name}"></label>`;
   if(o.t==='free')p+=['x','y','z'].map((k,i)=>`<label>${['x · abscisa','y · alejamiento','z · cota'][i]}<input type="number" step="1" data-k="${k}" value="${fmt(o.v[k])}"></label>`).join('');
   else p+=o.geo?`<small>${info(o)}</small>`:'<small>Construcción degenerada.</small>'}
- $('#props').innerHTML=p;refill()}
+ $('#props').innerHTML=p;renderBuilder()}
 function syncProps(){const o=byId(sel);if(o&&o.t==='free')document.querySelectorAll('[data-k]').forEach(i=>{if(document.activeElement!==i)i.value=fmt(o.v[i.dataset.k])})}
 $('#props').addEventListener('focusin',e=>{if(e.target.dataset.k)snap()});
 $('#props').addEventListener('input',e=>{const o=byId(sel);if(e.target.dataset.k){o.v[e.target.dataset.k]=parseFloat(e.target.value)||0;compute();render(0)}});
 $('#props').addEventListener('change',e=>{if(e.target.id==='pn'){const o=byId(sel);o.name=e.target.value||o.name;render(1)}});
 $('#objs').addEventListener('click',e=>{const row=e.target.closest('.ob');if(!row)return;const id=+row.dataset.id,a=e.target.dataset.a;
  if(a==='del')return del(id);if(a==='eye')byId(id).hide^=1;else sel=id;render(1)});
-function fillCT(){const keep=$('#ct').value,GN={pt:'Punto',ln:'Recta',pl:'Plano'};
- $('#ct').innerHTML=['pt','ln','pl'].map(k=>`<optgroup label="${GN[k]}">`+Object.entries(CONS).filter(([,c])=>c.k===k).map(([key,c])=>`<option value="${key}">${c.n}</option>`).join('')+'</optgroup>').join('');
- if([...$('#ct').options].some(x=>x.value===keep))$('#ct').value=keep;refill()}
-function refill(){const c=CONS[$('#ct').value];if(!c)return;
- for(const[el,k]of[[$('#ca'),c.a],[$('#cb'),c.b],[$('#cc'),c.c]]){el.style.display=k?'':'none';if(!k)continue;const keep=el.value;
-  el.innerHTML=objs.filter(o=>o.kind===k).map(o=>`<option value="${o.id}">${o.name}</option>`).join('');if([...el.options].some(x=>x.value===keep))el.value=keep}}
-$('#ct').onchange=refill;fillCT();
-$('#mk').onclick=()=>{
- const t=$('#ct').value;if(!t)return;
- const c=CONS[t],refs=[];
- for(const[el,k]of[[$('#ca'),c.a],[$('#cb'),c.b],[$('#cc'),c.c]]){
-  if(!k)continue;
-  if(!el.value){msg=`Falta un ${KLABEL[k]} para esta construcción.`;render(0);return}
-  refs.push(+el.value)}
- const R=refs.map(i=>byId(i).geo),geo=R.some(g=>!g)?null:calc({t},R);
- if(!geo){msg=`Esos elementos no determinan un ${KLABEL[c.k]} válido con esta relación (revisa alineaciones, paralelismos o rectas que no se cortan). No se ha creado nada.`;return render(0)}
- snap();const o=add(c.k,t,refs);sel=o.id;msg='';render(1)};
+/* ---------- Panel «Construir» ---------- */
+let BLD=null;
+const defRef=ks=>{const u=objs.filter(o=>o.geo&&ks.includes(o.kind));if(u.length)return u[u.length-1].id;const b=Object.values(BUILT).find(o=>ks.includes(o.kind));return b?b.id:null};
+const OPK={mid:[['pt'],['pt']],sym:[['pt'],['pt','ln','pl']],proj:[['pt'],['ln','pl']]};
+const okRef=(id,ks)=>id!=null&&byId(id)&&ks.includes(byId(id).kind);
+function resetB(k){BLD={k,type:'',op:'cond',conds:[],A:null,B:null};addCond()}
+function addCond(){const R=REL[BLD.k],key=Object.keys(R)[0];BLD.conds.push({r:key,ref:defRef(R[key].t||[]),val:0})}
+function fixRefs(){
+ if(BLD.k==='pt'&&BLD.op!=='cond'){const K=OPK[BLD.op];if(!okRef(BLD.A,K[0]))BLD.A=defRef(K[0]);if(!okRef(BLD.B,K[1]))BLD.B=defRef(K[1])}
+ for(const c of BLD.conds){const d=REL[BLD.k][c.r];if(d&&d.t&&!okRef(c.ref,d.t))c.ref=defRef(d.t)}}
+function optsHTML(ks,sel){const u=objs.filter(o=>o.geo&&ks.includes(o.kind)),b=Object.values(BUILT).filter(o=>ks.includes(o.kind)),
+ op=o=>`<option value="${o.id}"${o.id===sel?' selected':''}>${o.name}</option>`;
+ return u.map(op).join('')+(b.length?`<optgroup label="Referencias">${b.map(op).join('')}</optgroup>`:'')}
+function condRow(c,i){const R=REL[BLD.k],d=R[c.r];
+ const rs=`<select data-ci="${i}" data-cf="r" aria-label="Relación">${Object.entries(R).map(([k,x])=>`<option value="${k}"${k===c.r?' selected':''}>${x.l}</option>`).join('')}</select>`;
+ const tg=d.t?`<select data-ci="${i}" data-cf="ref" aria-label="Elemento">${optsHTML(d.t,c.ref)}</select>`:`<input type="number" data-ci="${i}" data-cv value="${c.val}" aria-label="Valor">`;
+ return `<div class="cond">${rs}<div class="row">${tg}<button data-rm="${i}" title="Quitar condición" aria-label="Quitar condición">×</button></div></div>`}
+function renderBuilder(){const el=$('#bld');if(!el)return;if(!BLD)resetB('ln');fixRefs();const k=BLD.k;
+ let h=`<div class="seg">${[['pt','Punto'],['ln','Recta'],['pl','Plano']].map(([x,l])=>`<button data-bk="${x}" class="${k===x?'on':''}">${l}</button>`).join('')}</div>`;
+ if(k==='pt')h+=`<label>Método<select data-f="op">${[['cond','Por condiciones'],['mid','Punto medio de dos puntos'],['sym','Simétrico respecto de un punto, recta o plano'],['proj','Proyección sobre una recta o plano']].map(([v,l])=>`<option value="${v}"${BLD.op===v?' selected':''}>${l}</option>`).join('')}</select></label>`;
+ else h+=`<label>Posición<select data-f="type">${TYPES[k].map(([v,l])=>`<option value="${v}"${BLD.type===v?' selected':''}>${l}</option>`).join('')}</select></label>`;
+ if(k==='pt'&&BLD.op!=='cond'){const L={mid:['Punto medio de','y'],sym:['Simétrico del punto','respecto de'],proj:['Proyección del punto','sobre']}[BLD.op],K=OPK[BLD.op];
+  h+=`<label>${L[0]}<select data-f="A">${optsHTML(K[0],BLD.A)}</select></label><label>${L[1]}<select data-f="B">${optsHTML(K[1],BLD.B)}</select></label>`}
+ else h+=BLD.conds.map(condRow).join('')+`<button data-add>＋ Condición</button>`;
+ h+=`<div id="bst" class="bst" role="status"></div><button id="bmk">Crear</button>`;
+ el.innerHTML=h;bstatus()}
+function bstatus(){const el=$('#bst');if(!el||!BLD)return;fixRefs();const r=solveSpec(BLD),kl={pt:'Punto',ln:'Recta',pl:'Plano'}[BLD.k];
+ el.className='bst '+(r.err?'bad':'ok');
+ el.innerHTML=r.err?`⚠ ${r.err}`:`✔ ${kl}: ${descSpec(BLD)}`+(r.free?`<small>Hay infinitas soluciones: se elige una. Añade condiciones para fijarla.</small>`:'');
+ $('#bmk').disabled=!!r.err}
+$('#bld').addEventListener('change',e=>{const t=e.target,d=t.dataset;if(t.type==='number')return;
+ if(d.f)BLD[d.f]=(d.f==='A'||d.f==='B')?+t.value:t.value;
+ else if(d.ci!==undefined){const c=BLD.conds[+d.ci];if(d.cf==='r')c.r=t.value;else if(d.cf==='ref')c.ref=+t.value}
+ renderBuilder()});
+$('#bld').addEventListener('input',e=>{const d=e.target.dataset;if(d.cv!==undefined){BLD.conds[+d.ci].val=parseFloat(e.target.value)||0;bstatus()}});
+$('#bld').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;
+ if(d.bk){if(d.bk!==BLD.k)resetB(d.bk)}else if(d.add!==undefined)addCond();else if(d.rm!==undefined)BLD.conds.splice(+d.rm,1);
+ else if(b.id==='bmk'){const r=solveSpec(BLD);if(r.err)return;const spec=JSON.parse(JSON.stringify(BLD));snap();
+  const o=add(spec.k,'con',specRefs(spec));o.spec=spec;compute();sel=o.id;msg='';return render(1)}
+ renderBuilder()});
 $('#addp').onclick=()=>{snap();sel=add('pt','free',[],{x:+$('#nx').value||0,y:+$('#ny').value||0,z:+$('#nz').value||0}).id;render(1)};
 document.querySelectorAll('#tools button').forEach(b=>b.onclick=()=>setTool(b.dataset.t));
+$('#clraux').onclick=()=>{aux=[];auxPend=null;render(0)};
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{$('#views').className=b.dataset.m;document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b))});
 $('#und').onclick=undo;$('#red').onclick=redo;
 $('#qleg').innerHTML=[[1,'y>0, z>0','continuo'],[2,'y<0, z>0','discontinuo'],[3,'y<0, z<0','discontinuo'],[4,'y>0, z<0','discontinuo']]
@@ -429,20 +603,20 @@ function setTool(t){tool=t;pending=[];msg='';document.querySelectorAll('#tools b
 addEventListener('keydown',e=>{if(/INPUT|SELECT/.test(document.activeElement.tagName))return;const k=e.key.toLowerCase();
  if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo()}
  else if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();redo()}
- else if(k==='v')setTool('sel');else if(k==='p')setTool('pt');else if(k==='r')setTool('ln');else if(k==='l')setTool('pl');
- else if(k==='escape'){setTool('sel');setTool3('orbit')}else if((k==='delete'||k==='backspace')&&sel)del(sel)});
+ else if(k==='v')setTool('sel');else if(k==='p')setTool('pt');else if(k==='r')setTool('ln');else if(k==='l')setTool('pl');else if(k==='x')setTool('aux');
+ else if(k==='escape'){setTool('sel');setTool3('orbit');auxPend=null}else if((k==='delete'||k==='backspace')&&sel)del(sel)});
 function hint(){if(msg)return msg;return{sel:'Creado por Álvaro Gómez',
  pt:'Clic en el alzado (arriba) o la planta (abajo) para crear un punto; luego arrástralo en la otra vista para fijar su otra coordenada.',
  ln:`Recta: elige el punto ${pending.length+1} de 2 (clic en un punto existente o en un hueco para crear uno).`,
- pl:`Plano: elige el punto ${pending.length+1} de 3 (clic en un punto existente o en un hueco para crear uno).`}[tool]}
+ pl:`Plano: elige el punto ${pending.length+1} de 3 (clic en un punto existente o en un hueco para crear uno).`,
+ aux:auxPend?'Clic en el segundo punto para fijar la línea auxiliar (sólo dentro de la misma vista).':'Auxiliar: clic en dos puntos de la MISMA vista (alzado o planta) para trazar una línea de apoyo sin significado 3D. Clic sobre una auxiliar existente para borrarla.'}[tool]}
 function hint3(){return{pt3:'Espacio 3D: clic sobre el plano PH para crear un punto (parte con z=0; luego ajusta su cota en Propiedades).',
  ln3:`Espacio 3D: elige el punto ${pending3.length+1} de 2 (clic en una esfera existente o en el plano para crear uno nuevo).`}[tool3]}
-function render(full){draw2d();buildScene();if(full)panel();saveProgress();$('#st').textContent=hint3()||hint()}
+function render(full){draw2d();buildScene();if(full)panel();else bstatus();$('#st').textContent=hint3()||hint()}
 
 /* ---------- Ejemplo inicial ---------- */
-{let restored=false;try{const saved=localStorage.getItem(STORAGE_KEY);if(saved){const d=JSON.parse(saved);if(Array.isArray(d.o)&&d.cnt){objs=d.o;nid=d.nid||1;cnt=d.cnt;compute();restored=true}}}catch(e){localStorage.removeItem(STORAGE_KEY)}
- if(!restored){const A=add('pt','free',[],{x:-50,y:30,z:45}),B=add('pt','free',[],{x:20,y:55,z:15}),C=add('pt','free',[],{x:60,y:15,z:55});
- const al=add('pl','p3',[A.id,B.id,C.id]),D=add('pt','free',[],{x:-10,y:70,z:70}),s=add('ln','lperp',[D.id,al.id]);add('pt','inter',[s.id,al.id]);sel=al.id}hist=[];fut=[]}
+{const A=add('pt','free',[],{x:-50,y:30,z:45}),B=add('pt','free',[],{x:20,y:55,z:15}),C=add('pt','free',[],{x:60,y:15,z:55});
+ const al=add('pl','p3',[A.id,B.id,C.id]),D=add('pt','free',[],{x:-10,y:70,z:70}),s=add('ln','lperp',[D.id,al.id]);add('pt','inter',[s.id,al.id]);sel=al.id;hist=[];fut=[]}
 requestAnimationFrame(()=>{render(1);loop()});
 </script>
 </body></html>
